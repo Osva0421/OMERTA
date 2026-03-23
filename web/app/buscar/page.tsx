@@ -24,7 +24,7 @@ function ResultadosBusqueda() {
                 img: item.node.images.edges?.[0]?.node?.url,
             }));
 
-            const resultados = formateados.filter(p =>
+            const resultados = formateados.filter((p: { name: string }) =>
                 p.name.toLowerCase().includes(query.toLowerCase())
             );
 
