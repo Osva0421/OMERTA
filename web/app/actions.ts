@@ -1,10 +1,10 @@
 "use server";
 
-import { ShopifyData } from "@/lib/shopify";
+import { ShopifyData } from '@/app/lib/shopify';
 import { redirect } from "next/navigation";
 
 export async function checkout(variantId: string) {
-    const query = `
+  const query = `
     mutation {
       cartCreate(
         input: {
@@ -23,10 +23,10 @@ export async function checkout(variantId: string) {
     }
   `;
 
-    const response = await ShopifyData(query);
-    const url = response.data?.cartCreate?.cart?.checkoutUrl;
+  const response = await ShopifyData(query);
+  const url = response.data?.cartCreate?.cart?.checkoutUrl;
 
-    if (url) {
-        redirect(url);
-    }
+  if (url) {
+    redirect(url);
+  }
 }
