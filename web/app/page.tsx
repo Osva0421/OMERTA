@@ -80,7 +80,7 @@ export default function InicioOMERTA() {
   const cantidadTotalCarrito = carrito?.reduce((total, item) => total + (item.cantidad || 1), 0) || 0;
   const cantidadTotalCloset = favoritos?.reduce((total, item) => total + (item.cantidad || 1), 0) || 0;
 
-  const totalDineroCarrito = carrito?.reduce((total, item) => total + (item.rawPrice * (item.cantidad || 1) || 0), 0) || 0;
+  const totalDineroCarrito = carrito?.reduce((total, item) => total + ((item.rawPrice || 0) * (item.cantidad || 1)), 0) || 0;
   const META_ENVIO_GRATIS = 1050;
   const faltaParaEnvio = META_ENVIO_GRATIS - totalDineroCarrito;
 
