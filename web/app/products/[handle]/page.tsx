@@ -35,30 +35,35 @@ function DescripcionTecnica({ texto }: { texto: string }) {
     );
 }
 
-// --- COMPONENTE CORREGIDO: BARRA DE PROGRESO EN VIVO ---
+// --- COMPONENTE: BARRA DE PROGRESO COMBINADA ---
 function BarraEnvioGratis() {
-    // FIX: Escuchamos los cambios del carrito para actualizar en vivo
-    const carrito = useCartStore((state) => state.carrito);
     const obtenerTotalCarrito = useCartStore((state) => state.obtenerTotalCarrito);
+    const favoritos = useCartStore((state) => state.favoritos);
 
-    const total = obtenerTotalCarrito();
+    const totalCarrito = obtenerTotalCarrito();
+    const totalCloset = favoritos.reduce((acc, item) => {
+        const precioString = String(item.precio || item.price || "0");
+        const precioNum = parseFloat(precioString.replace(/[^0-9.]/g, "")) || 0;
+        return acc + (item.rawPrice || precioNum);
+    }, 0);
+
+    const totalCombinado = totalCarrito + totalCloset;
     const META_ENVIO = 1050;
-    const falta = Math.max(0, META_ENVIO - total);
-    const porcentaje = Math.min((total / META_ENVIO) * 100, 100);
+    const falta = Math.max(0, META_ENVIO - totalCombinado);
+    const porcentaje = Math.min((totalCombinado / META_ENVIO) * 100, 100);
 
     return (
         <div className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 mb-6">
             <div className="flex justify-between items-end mb-2">
                 <p className="text-[10px] font-black uppercase tracking-widest text-black">
-                    {total >= META_ENVIO ? "¡ENVÍO GRATIS DESBLOQUEADO! 🚚" : "ENVÍO GRATIS 📦"}
+                    {totalCombinado >= META_ENVIO ? "¡ENVÍO GRATIS AL LLEVAR ESTO! 🚚" : "META: ENVÍO GRATIS 📦"}
                 </p>
-                {total < META_ENVIO && (
+                {totalCombinado < META_ENVIO && (
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                         Faltan <span className="text-black font-black">${falta.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
                     </p>
                 )}
             </div>
-
             <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden relative">
                 <motion.div
                     className="h-full bg-black absolute top-0 left-0 rounded-full"
@@ -67,16 +72,14 @@ function BarraEnvioGratis() {
                     transition={{ duration: 0.8, ease: "easeOut" }}
                 />
             </div>
-
-            {total > 0 && total < META_ENVIO && (
+            {totalCombinado < META_ENVIO && (
                 <p className="text-[9px] text-gray-400 mt-3 text-center uppercase tracking-widest">
-                    Agrega este u otros productos para no pagar envío.
+                    Agrega al carrito o a vigilancia para no pagar envío.
                 </p>
             )}
         </div>
     );
 }
-// --------------------------------------------------------
 
 export default function ProductPage() {
     const { handle } = useParams();
@@ -84,17 +87,21 @@ export default function ProductPage() {
 
     const [producto, setProducto] = useState<any>(null);
     const [cargando, setCargando] = useState(true);
-    const [varianteSeleccionada, setVarianteSeleccionada] = useState<any>(null);
-    const [imagenActiva, setImagenActiva] = useState<string>('');
 
-    // Estados del Buscador y Catálogo Global
+    const [coloresDisponibles, setColoresDisponibles] = useState<string[]>([]);
+    const [tallasDisponibles, setTallasDisponibles] = useState<string[]>([]);
+    const [colorSeleccionado, setColorSeleccionado] = useState<string>('');
+    const [tallaSeleccionada, setTallaSeleccionada] = useState<string>('');
+    const [varianteSeleccionada, setVarianteSeleccionada] = useState<any>(null);
+
+    const [imagenActiva, setImagenActiva] = useState<string>('');
+    const [galeriaFiltrada, setGaleríaFiltrada] = useState<any[]>([]);
+
     const [terminoBusqueda, setTerminoBusqueda] = useState('');
     const [todosLosProductos, setTodosLosProductos] = useState<any[]>([]);
     const [mostrandoResultados, setMostrandoResultados] = useState(false);
-
     const [fechaEntrega, setFechaEntrega] = useState('');
 
-    // --- NUEVOS ESTADOS PARA ANIMACIONES ---
     const [corazonVolador, setCorazonVolador] = useState(false);
     const [bolsaVoladora, setBolsaVoladora] = useState(false);
 
@@ -110,15 +117,86 @@ export default function ProductPage() {
             const data = await getProduct(handle as string);
             if (data) {
                 setProducto(data);
-                setVarianteSeleccionada(data.variants.edges[0].node);
-                if (data.images.edges.length > 0) {
-                    setImagenActiva(data.images.edges[0].node.url);
-                }
+
+                const colores = new Set<string>();
+                const tallas = new Set<string>();
+
+                data.variants.edges.forEach(({ node }: any) => {
+                    const partes = node.title.split(' / ');
+                    if (partes.length > 1) {
+                        colores.add(partes[0].trim());
+                        tallas.add(partes[1].trim());
+                    } else {
+                        tallas.add(partes[0].trim());
+                    }
+                });
+
+                const arrayColores = Array.from(colores);
+                const arrayTallas = Array.from(tallas);
+
+                setColoresDisponibles(arrayColores);
+                setTallasDisponibles(arrayTallas);
+
+                setColorSeleccionado(arrayColores[0] || '');
+                setTallaSeleccionada(arrayTallas[0] || '');
+
+                setGaleríaFiltrada(data.images.edges);
             }
             setCargando(false);
         }
         fetchProducto();
     }, [handle]);
+
+    // --- EFECTO RECALCULAR VARIANTE (CON FILTRO ESTRICTO DE PALABRAS) ---
+    useEffect(() => {
+        if (!producto) return;
+
+        // 1. Encontrar la variante exacta
+        const colorLower = colorSeleccionado.toLowerCase().trim();
+        const tallaLower = tallaSeleccionada.toLowerCase().trim();
+
+        const nuevaVariante = producto.variants.edges.find(({ node }: any) => {
+            const titulo = node.title.toLowerCase();
+            if (coloresDisponibles.length > 0) {
+                return titulo.includes(colorLower) && titulo.includes(tallaLower);
+            }
+            return titulo === tallaLower;
+        })?.node;
+
+        if (nuevaVariante) {
+            setVarianteSeleccionada(nuevaVariante);
+        }
+
+        // 2. FILTRAR GALERÍA CON COINCIDENCIA EXACTA DE PALABRAS
+        if (colorSeleccionado) {
+            const fotosFiltradas = producto.images.edges.filter((img: any) => {
+                if (!img.node.altText) return false;
+
+                const textoAlt = img.node.altText.toLowerCase().trim();
+                const colorABuscar = colorSeleccionado.toLowerCase().trim();
+
+                // HACK DE INGENIERÍA:
+                // En lugar de usar .includes(), comparamos si el texto es IGUAL 
+                // o si la frase del color seleccionado aparece como una unidad completa.
+                // Esto evita que "Negro" se meta en "Negro Claro".
+                return textoAlt === colorABuscar || textoAlt.includes(` ${colorABuscar}`) || textoAlt.includes(`${colorABuscar} `);
+            });
+
+            // EL RESPALDO: Si no hay fotos por AltText, intentamos por la imagen de la variante
+            let resultadoFinal = fotosFiltradas;
+            if (resultadoFinal.length === 0 && nuevaVariante?.image?.url) {
+                resultadoFinal = producto.images.edges.filter((img: any) => img.node.url === nuevaVariante.image.url);
+            }
+
+            if (resultadoFinal.length > 0) {
+                setGaleríaFiltrada(resultadoFinal);
+                // Si cambiamos de color, ponemos la primera foto de ese color como principal
+                setImagenActiva(resultadoFinal[0].node.url);
+            } else {
+                setGaleríaFiltrada(producto.images.edges);
+            }
+        }
+    }, [colorSeleccionado, tallaSeleccionada, producto, coloresDisponibles.length]);
 
     useEffect(() => {
         async function cargarCatalogoBuscador() {
@@ -152,7 +230,6 @@ export default function ProductPage() {
         ? []
         : todosLosProductos.filter(p => p.name.toLowerCase().includes(terminoBusqueda.toLowerCase()));
 
-    // --- LÓGICA DE RECOMENDADOS INTELIGENTE POR GÉNERO ---
     const productoActualEnCatalogo = todosLosProductos.find(p => p.handle === handle);
     const esPrendaMujer = productoActualEnCatalogo?.tags?.some((tag: string) => tag.toLowerCase().startsWith('woman-')) || false;
     const prefijoGenero = esPrendaMujer ? 'woman-' : 'men-';
@@ -163,28 +240,25 @@ export default function ProductPage() {
         .slice(0, 4);
 
     if (cargando) return <div className="min-h-screen flex items-center justify-center font-mono text-xs uppercase tracking-[0.5em] animate-pulse text-black">Desencriptando datos...</div>;
-    if (!producto) return <div className="min-h-screen flex items-center justify-center font-black text-4xl uppercase">Archivo no encontrado</div>;
+    if (!producto || !varianteSeleccionada) return <div className="min-h-screen flex items-center justify-center font-black text-4xl uppercase">Archivo no encontrado</div>;
 
     const precioBase = producto.priceRange.minVariantPrice.amount;
-    const precioActual = varianteSeleccionada?.price?.amount || precioBase;
+    const precioActual = varianteSeleccionada.price?.amount || precioBase;
     const precioFormateado = `$${parseFloat(precioActual).toLocaleString()} MXN`;
 
+    // FIX: La prenda enviada al carrito ahora TIENE garantizado el ID de la variante negra/blanca/etc
     const prendaActual = {
         id: producto.id,
-        shopifyId: varianteSeleccionada?.id,
-        name: `${producto.title} (${varianteSeleccionada?.title.split(' / ').pop()})`,
+        shopifyId: varianteSeleccionada.id,
+        name: `${producto.title} (${coloresDisponibles.length > 0 ? `${colorSeleccionado} - ` : ''}${tallaSeleccionada})`,
         price: precioFormateado,
         rawPrice: parseFloat(precioActual),
-        img: producto.images.edges[0]?.node.url
+        img: varianteSeleccionada.image?.url || producto.images.edges[0]?.node.url
     };
 
-    // FIX: Determinamos si la variante actual está en favoritos
-    // (Verificamos por shopifyId para que sea exacto por talla)
-    const esFavorito = favoritos.some((fav) => fav.shopifyId === varianteSeleccionada?.id);
+    const esFavorito = favoritos.some((fav: any) => fav.shopifyId === varianteSeleccionada.id);
 
-    // --- MANEJADORES DE CLIC CON ANIMACIÓN ---
     const manejarFavorito = () => {
-        // Solo vuela el corazón si lo estamos agregando
         if (!esFavorito) {
             setCorazonVolador(true);
             setTimeout(() => setCorazonVolador(false), 800);
@@ -204,7 +278,6 @@ export default function ProductPage() {
             {/* --- NAVBAR --- */}
             <header className="bg-white/90 backdrop-blur-md text-black px-4 py-4 sticky top-0 z-50 border-b border-gray-100 relative">
                 <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-y-4 gap-x-3">
-
                     <Link href="/" className="flex-shrink-0">
                         <img src="/monograma-omerta.png" alt="OMERTA" className="h-10 md:h-12 w-auto hover:scale-105 transition-transform" />
                     </Link>
@@ -281,19 +354,15 @@ export default function ProductPage() {
                                 </motion.span>
                             )}
                         </Link>
-
                         <button className="flex items-center gap-2 hover:text-gray-300 transition-colors">
                             <Bell size={16} />
                             <span className="hidden lg:inline">Notificaciones</span>
                         </button>
-
                         <Link href="/login" className="flex items-center gap-2 hover:text-gray-300 transition-colors">
                             <User size={16} />
                             <span className="hidden lg:inline">{isLoggedIn ? userName : 'Entrar'}</span>
                         </Link>
-
                         <div className="w-[1px] h-4 bg-zinc-700 hidden lg:block"></div>
-
                         <Link href="/carrito" className="flex items-center gap-2 relative hover:text-gray-300 transition-colors">
                             <ShoppingBag size={16} />
                             <span className="hidden lg:inline">Carrito</span>
@@ -321,9 +390,9 @@ export default function ProductPage() {
                     {/* --- IZQUIERDA: GALERÍA DE FOTOS --- */}
                     <div className="w-full lg:w-[60%] flex flex-col-reverse lg:flex-row gap-4">
 
-                        {/* Miniaturas */}
+                        {/* Miniaturas Filtradas */}
                         <div className="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto snap-x snap-mandatory no-scrollbar lg:w-28 flex-none pb-2 lg:pb-0">
-                            {producto.images.edges.map((img: any, i: number) => (
+                            {galeriaFiltrada.map((img: any, i: number) => (
                                 <button
                                     key={i}
                                     onClick={() => setImagenActiva(img.node.url)}
@@ -334,14 +403,14 @@ export default function ProductPage() {
                                 >
                                     <img
                                         src={img.node.url}
-                                        alt={`${producto.title} vista ${i + 1}`}
+                                        alt={`${producto.title} vista`}
                                         className="w-full h-full object-cover"
                                     />
                                 </button>
                             ))}
                         </div>
 
-                        {/* IMAGEN PRINCIPAL (FIX REAL) */}
+                        {/* IMAGEN PRINCIPAL */}
                         <div className="flex-1 relative flex items-start justify-center">
                             <img
                                 src={imagenActiva || producto.images.edges[0]?.node.url}
@@ -359,22 +428,53 @@ export default function ProductPage() {
                         <h1 className="text-3xl md:text-5xl lg:text-6xl font-black uppercase italic tracking-tighter leading-[0.9] mb-4">{producto.title}</h1>
                         <p className="text-xl md:text-2xl font-mono text-gray-500 mb-8 transition-all">{precioFormateado}</p>
 
+                        {/* --- SELECTOR DE COLORES --- */}
+                        {coloresDisponibles.length > 0 && (
+                            <div className="mb-6">
+                                <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] mb-4 text-gray-400">Selecciona el tono</h3>
+                                <div className="flex flex-wrap gap-3">
+                                    {coloresDisponibles.map((color) => (
+                                        <button
+                                            key={color}
+                                            onClick={() => setColorSeleccionado(color)}
+                                            className={`px-5 py-3 border-2 font-black uppercase tracking-widest text-xs transition-all rounded-xl ${colorSeleccionado === color
+                                                ? 'border-black bg-black text-white shadow-md scale-105'
+                                                : 'border-gray-100 text-gray-400 hover:border-black'
+                                                }`}
+                                        >
+                                            {color}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* --- SELECTOR DE TALLAS DINÁMICO --- */}
                         <div className="mb-8">
                             <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] mb-4 text-gray-400">Selecciona tu talla</h3>
                             <div className="flex flex-wrap gap-3 pb-4">
-                                {producto.variants.edges.map(({ node }: any) => {
-                                    const labelTalla = node.title.split(' / ').pop();
+                                {tallasDisponibles.map((talla) => {
+                                    const colorLower = colorSeleccionado.toLowerCase();
+                                    const tallaLower = talla.toLowerCase();
+
+                                    const varianteCombo = producto.variants.edges.find(({ node }: any) => {
+                                        const t = node.title.toLowerCase();
+                                        return (t.includes(colorLower) && t.includes(tallaLower)) || t === tallaLower;
+                                    })?.node;
+
+                                    const isAvailable = varianteCombo?.availableForSale ?? false;
+
                                     return (
                                         <button
-                                            key={node.id}
-                                            onClick={() => setVarianteSeleccionada(node)}
-                                            disabled={!node.availableForSale}
-                                            className={`px-6 py-4 border-2 font-black uppercase tracking-widest text-xs min-w-[70px] transition-all rounded-xl ${varianteSeleccionada?.id === node.id
+                                            key={talla}
+                                            onClick={() => setTallaSeleccionada(talla)}
+                                            disabled={!isAvailable}
+                                            className={`px-6 py-4 border-2 font-black uppercase tracking-widest text-xs min-w-[70px] transition-all rounded-xl ${tallaSeleccionada === talla
                                                 ? 'border-black bg-black text-white scale-105 shadow-md'
                                                 : 'border-gray-100 text-gray-400 hover:border-black'
-                                                } ${!node.availableForSale ? 'opacity-30 line-through cursor-not-allowed' : ''}`}
+                                                } ${!isAvailable ? 'opacity-30 line-through cursor-not-allowed' : ''}`}
                                         >
-                                            {labelTalla}
+                                            {talla}
                                         </button>
                                     );
                                 })}
@@ -388,8 +488,7 @@ export default function ProductPage() {
                                 onClick={manejarCarrito}
                                 className="flex-1 bg-black text-white py-5 text-xs font-black uppercase tracking-[0.2em] hover:bg-zinc-800 transition-all rounded-2xl shadow-xl flex items-center justify-center gap-3 relative"
                             >
-                                <ShoppingBag size={18} /> AGREGAR AL CARRITO
-
+                                <ShoppingBag size={18} /> Asignar al Carrito
                                 <AnimatePresence>
                                     {bolsaVoladora && (
                                         <motion.div
@@ -405,13 +504,11 @@ export default function ProductPage() {
                                 </AnimatePresence>
                             </button>
 
-                            {/* FIX: Ahora esFavorito controla el color del corazón dinámicamente */}
                             <button
                                 onClick={manejarFavorito}
                                 className={`w-16 md:w-20 rounded-2xl flex items-center justify-center border-2 transition-all shadow-md relative ${esFavorito ? 'border-red-500 bg-red-50 text-red-500' : 'border-gray-100 text-gray-300 hover:border-gray-300'}`}
                             >
                                 <Heart size={24} className={esFavorito ? "fill-red-500" : ""} />
-
                                 <AnimatePresence>
                                     {corazonVolador && (
                                         <motion.div
@@ -432,7 +529,7 @@ export default function ProductPage() {
                             <div className="flex items-start gap-4">
                                 <Truck size={20} className="text-black mt-1" />
                                 <div>
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-black mb-1">Envío a todo México</h4>
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-black mb-1">Envíos Seguros</h4>
                                     <p className="text-xs text-gray-500">Llegada estimada: <span className="font-bold text-black">{fechaEntrega || 'Calculando...'}</span></p>
                                 </div>
                             </div>
