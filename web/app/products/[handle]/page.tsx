@@ -159,10 +159,15 @@ export default function ProductPage() {
             }
         }
 
+        // --- FIX: FILTRO DE FOTOS MEJORADO ---
         if (colorSeleccionado) {
-            const fotosColor = producto.images.edges.filter((img: any) =>
-                img.node.altText && img.node.altText.toLowerCase().includes(colorSeleccionado.toLowerCase())
-            );
+            const colorTarget = colorSeleccionado.trim().toLowerCase();
+            const fotosColor = producto.images.edges.filter((img: any) => {
+                if (!img.node.altText) return false;
+                const alt = img.node.altText.toLowerCase().trim();
+                // Busca coincidencia exacta para no mezclar colores similares
+                return alt === colorTarget || alt.includes(` ${colorTarget}`) || alt.includes(`${colorTarget} `);
+            });
             setGaleríaFiltrada(fotosColor.length > 0 ? fotosColor : producto.images.edges);
         }
 

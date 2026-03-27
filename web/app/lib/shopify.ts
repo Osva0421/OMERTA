@@ -15,7 +15,7 @@ export async function ShopifyData(query: string, variables = {}) {
         "X-Shopify-Storefront-Access-Token": storefrontAccessToken,
       },
       body: JSON.stringify({ query, variables }),
-      cache: 'no-store',
+      cache: 'no-store', // Mantiene los datos siempre frescos
     });
 
     const text = await result.text();
@@ -47,9 +47,9 @@ export async function getProducts() {
           handle
           tags
           priceRange { minVariantPrice { amount } }
-          images(first: 1) { edges { node { url altText } } }
-          variants(first: 1) {
-            edges { node { id } }
+          images(first: 5) { edges { node { url altText } } }
+          variants(first: 10) {
+            edges { node { id title image { url } } }
           }
         }
       }
@@ -70,9 +70,9 @@ export async function getProductsByCollection(handle: string) {
               title
               handle
               priceRange { minVariantPrice { amount } }
-              images(first: 1) { edges { node { url altText } } }
-              variants(first: 1) {
-                edges { node { id } }
+              images(first: 5) { edges { node { url altText } } }
+              variants(first: 10) {
+                edges { node { id title } }
               }
             }
           }
@@ -115,7 +115,7 @@ export async function getProduct(handle: string) {
         title
         description
         priceRange { minVariantPrice { amount } }
-        images(first: 20) { 
+        images(first: 50) { 
           edges { 
             node { 
               url 
@@ -123,7 +123,7 @@ export async function getProduct(handle: string) {
             } 
           } 
         }
-        variants(first: 25) { 
+        variants(first: 100) { 
           edges { 
             node { 
               id 
