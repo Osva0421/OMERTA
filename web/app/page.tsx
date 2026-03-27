@@ -1,62 +1,40 @@
 "use client";
 
-import { useState, useEffect, Suspense, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ShoppingBag, User, LayoutGrid, Bell, ChevronRight, ArrowRight, Heart } from 'lucide-react';
+import { Search, ShoppingBag, Bell, ChevronRight, Heart, LayoutGrid, User, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
-import Typewriter from 'typewriter-effect';
 import { useRouter } from 'next/navigation';
 
 // --- IMPORTAMOS EL CEREBRO GLOBAL Y SHOPIFY ---
 import { useCartStore } from './store/useCartStore';
 import { getProducts } from './lib/shopify';
 
-// --- IMPORTACIONES 3D ---
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, useGLTF, Center, Html } from '@react-three/drei';
-
-function PantallaCarga() {
-  return <Html center><div className="text-black text-xs font-mono tracking-widest bg-white/80 px-4 py-2 rounded">CARGANDO...</div></Html>;
-}
-
-function Playera3D() {
-  const { scene } = useGLTF('/playera.glb');
-  return (
-    <Center>
-      <primitive object={scene} scale={5.5} />
-    </Center>
-  );
-}
-
-function ControlesCamara() {
-  return (
-    <OrbitControls enableZoom={false} minDistance={2} maxDistance={6} enablePan={false} autoRotate autoRotateSpeed={1.5} />
-  );
-}
-
+// =====================================================================
+// FUNCIONES AUXILIARES
+// =====================================================================
 const crearSlug = (texto: string) => {
   return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-');
 };
 
 // =====================================================================
-// NUEVO MOTOR: TARJETA INTERACTIVA CON SLIDESHOW (HOVER EN PC, SWIPE MÓVIL)
+// NUEVO MOTOR: TARJETA INTERACTIVA CON SLIDESHOW
 // =====================================================================
 function TarjetaProductoInteractiva({ prod, favoritos, manejarFavoritoDefault }: any) {
   const [indiceActivo, setIndiceActivo] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const iniciarHover = () => {
-    // Solo activamos el movimiento automático en pantallas de PC
     if (window.matchMedia("(min-width: 768px)").matches && prod.galeria && prod.galeria.length > 1) {
       timerRef.current = setInterval(() => {
         setIndiceActivo((prev) => (prev + 1) % prod.galeria.length);
-      }, 1200); // Pasa a la siguiente foto cada 1.2 segundos
+      }, 1200);
     }
   };
 
   const detenerHover = () => {
     if (timerRef.current) clearInterval(timerRef.current);
-    setIndiceActivo(0); // Regresa a la primera foto al quitar el cursor
+    setIndiceActivo(0);
   };
 
   const esFavorito = (favoritos || []).some((f: any) => f.shopifyId === prod.shopifyId);
@@ -77,26 +55,21 @@ function TarjetaProductoInteractiva({ prod, favoritos, manejarFavoritoDefault }:
       </button>
 
       <div className="aspect-[4/5] bg-[#f8f8f8] mb-4 md:mb-6 relative overflow-hidden rounded-2xl md:rounded-3xl">
-
-        {/* CONTENEDOR DE LA GALERÍA: Oculto en PC, Swipe en Móvil */}
-        <div className="w-full h-full flex overflow-x-auto md:overflow-hidden snap-x snap-mandatory no-scrollbar">
+        <div className="w-full h-full flex overflow-x-auto md:overflow-hidden snap-x snap-mandatory no-scrollbar relative z-10">
           {prod.galeria.map((imgUrl: string, i: number) => (
             <Link
               key={i}
               href={`/products/${prod.handle}`}
               className="w-full h-full flex-none snap-center relative"
-              style={{
-                transform: `translateX(-${indiceActivo * 100}%)`,
-                transition: 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1)'
-              }}
+              style={{ transform: `translateX(-${indiceActivo * 100}%)`, transition: 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1)' }}
             >
               <img src={imgUrl} alt={`${prod.name} - Vista ${i}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
             </Link>
           ))}
         </div>
 
-        <div className="absolute bottom-0 w-full p-4 translate-y-0 md:translate-y-full md:group-hover:translate-y-0 transition-transform duration-300 pointer-events-none md:pointer-events-auto">
-          <Link href={`/products/${prod.handle}`} className="pointer-events-auto">
+        <div className="absolute bottom-0 w-full p-4 translate-y-0 md:translate-y-full md:group-hover:translate-y-0 transition-transform duration-300 pointer-events-none md:pointer-events-auto relative z-20">
+          <Link href={`/products/${prod.handle}`} className="pointer-events-auto block">
             <div className="w-full bg-black text-white text-[10px] md:text-xs font-bold px-6 py-5 md:py-6 uppercase tracking-widest shadow-lg flex justify-center items-center rounded-xl md:rounded-2xl">
               Selecciona tu talla
             </div>
@@ -111,8 +84,10 @@ function TarjetaProductoInteractiva({ prod, favoritos, manejarFavoritoDefault }:
     </div>
   );
 }
-// =====================================================================
 
+// =====================================================================
+// PÁGINA PRINCIPAL
+// =====================================================================
 export default function InicioOMERTA() {
   const router = useRouter();
   const { carrito = [], favoritos = [], toggleFavorito } = useCartStore();
@@ -122,40 +97,29 @@ export default function InicioOMERTA() {
 
   const [productosShopify, setProductosShopify] = useState<any[]>([]);
   const [cargandoShopify, setCargandoShopify] = useState(true);
-
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
   const [mostrandoResultados, setMostrandoResultados] = useState(false);
 
+  // --- Carga de Shopify ---
   useEffect(() => {
     async function extraerArsenal() {
       try {
         const data = await getProducts();
         const formateados = data.map((item: any) => {
           const primeraVariante = item.node.variants?.edges?.[0]?.node;
-          // Extraemos TODAS las fotos del producto para mandarlas a la tarjeta interactiva
           const galeriaCompleta = item.node.images.edges.map((e: any) => e.node.url);
-
           return {
-            id: item.node.id,
-            handle: item.node.handle,
-            shopifyId: primeraVariante?.id || "ID_VACIO",
-            variantTitle: primeraVariante?.title || "Unitalla",
-            name: item.node.title,
+            id: item.node.id, handle: item.node.handle, shopifyId: primeraVariante?.id || "ID_VACIO",
+            variantTitle: primeraVariante?.title || "Unitalla", name: item.node.title,
             price: `$${parseFloat(item.node.priceRange.minVariantPrice.amount).toLocaleString()} MXN`,
             rawPrice: parseFloat(item.node.priceRange.minVariantPrice.amount),
             img: primeraVariante?.image?.url || item.node.images.edges?.[0]?.node?.url || '',
-            galeria: galeriaCompleta.length > 0 ? galeriaCompleta : [primeraVariante?.image?.url || ''], // Mandamos la galería
-            tags: item.node.tags || [],
-            tituloVariante: item.node.variants?.edges?.[0]?.node?.title || "Unitalla",
-            imagenVariante: item.node.variants?.edges?.[0]?.node?.image?.url || null
+            galeria: galeriaCompleta, tags: item.node.tags || [],
+            tituloVariante: item.node.variants?.edges?.[0]?.node?.title || "Unitalla"
           };
         });
         setProductosShopify(formateados);
-      } catch (error) {
-        console.error("Error al sincronizar con Shopify:", error);
-      } finally {
-        setCargandoShopify(false);
-      }
+      } catch (error) { console.error(error); } finally { setCargandoShopify(false); }
     }
     extraerArsenal();
   }, []);
@@ -163,7 +127,6 @@ export default function InicioOMERTA() {
   const totalDineroCarrito = carrito?.reduce((total, item) => total + ((item.rawPrice || 0) * (item.cantidad || 1)), 0) || 0;
   const META_ENVIO_GRATIS = 1050;
   const faltaParaEnvio = META_ENVIO_GRATIS - totalDineroCarrito;
-
   const cantidadTotalCarrito = carrito?.reduce((total, item) => total + (item.cantidad || 1), 0) || 0;
   const cantidadTotalCloset = favoritos?.length || 0;
 
@@ -172,71 +135,77 @@ export default function InicioOMERTA() {
     return prod.tags.some((tag: string) => tag.toLowerCase().startsWith(prefijo));
   });
 
-  const resultadosBusqueda = terminoBusqueda.trim() === ''
-    ? []
-    : productosShopify.filter(p => p.name.toLowerCase().includes(terminoBusqueda.toLowerCase()));
+  const resultadosBusqueda = terminoBusqueda.trim() === '' ? [] : productosShopify.filter(p => p.name.toLowerCase().includes(terminoBusqueda.toLowerCase()));
 
   const ejecutarBusqueda = (e: React.FormEvent) => {
     e.preventDefault();
-    if (terminoBusqueda.trim()) {
-      router.push(`/buscar?q=${encodeURIComponent(terminoBusqueda)}`);
-    }
+    if (terminoBusqueda.trim()) router.push(`/buscar?q=${encodeURIComponent(terminoBusqueda)}`);
   };
 
   const manejarFavoritoDefault = (prod: any) => {
-    let varianteFormateada = prod.tituloVariante.replace(/\s*\/\s*/g, ' - ');
-    if (varianteFormateada.toLowerCase() === 'default title') {
-      varianteFormateada = 'Unitalla';
-    }
-
-    const prendaParaCloset = {
-      id: prod.id,
-      shopifyId: prod.shopifyId,
-      name: `${prod.name} (${varianteFormateada})`,
-      price: prod.price,
-      rawPrice: prod.rawPrice,
-      img: prod.imagenVariante || prod.img
-    };
-
+    let varTitle = prod.tituloVariante.replace(/\s*\/\s*/g, ' - ');
+    if (varTitle.toLowerCase() === 'default title') varTitle = 'Unitalla';
+    const prendaParaCloset = { id: prod.id, shopifyId: prod.shopifyId, name: `${prod.name} (${varTitle})`, price: prod.price, rawPrice: prod.rawPrice, img: prod.img };
     toggleFavorito(prendaParaCloset);
   };
 
   const config = {
-    MEN: {
-      bgColor: '#ffffff',
-      textColor: '#111111',
-      frase: "LA BASE DE TU UNIFORME URBANO. CONSTRUIDO PARA RESISTIR.",
-      subCategorias: ["Playeras", "Oversize", "Hoodies", "Pantalones", "Accesorios"],
-      lookbook: [
-        { title: 'Archive Essentials', desc: 'La base de tu clóset.', img: 'https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?q=80&w=800' },
-        { title: 'Heavyweight Hoodies', desc: 'Algodón premium 400g.', img: 'https://images.unsplash.com/photo-1611312449408-fcece27cdbb7?q=80&w=800' },
-        { title: 'Pantalones Utilitarios', desc: 'Cortes tácticos de ciudad.', img: 'https://images.unsplash.com/photo-1523398002811-999aa8a7340e?q=80&w=800' }
-      ]
-    },
-    WOMAN: {
-      bgColor: '#E5DFD3',
-      textColor: '#1a1a1a',
-      frase: "ESTRUCTURA Y MOVIMIENTO. REDEFINIENDO LA SILUETA.",
-      subCategorias: ["Baby Tees", "Oversize", "Hoodies", "Leggings", "Accesorios"],
-      lookbook: [
-        { title: 'Archive Essentials', desc: 'Ajuste arquitectónico.', img: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=800' },
-        { title: 'Oversize Femenino', desc: 'Estilo sin esfuerzo.', img: 'https://images.unsplash.com/photo-1434389670869-bac08d471df4?q=80&w=800' },
-        { title: 'Pantalones Cargo', desc: 'Cintura alta, caída pesada.', img: 'https://images.unsplash.com/photo-1583496920966-2679589d9c22?q=80&w=800' }
-      ]
-    }
+    MEN: { bgColor: '#ffffff', textColor: '#111111', subCategorias: ["Playeras", "Oversize", "Hoodies", "Pantalones", "Accesorios"] },
+    WOMAN: { bgColor: '#E5DFD3', textColor: '#1a1a1a', subCategorias: ["Baby Tees", "Oversize", "Hoodies", "Leggings", "Accesorios"] }
   };
 
   const actual = config[genero];
-  const categoriasMostrar = genero === 'MEN'
-    ? ["Playeras", "Oversize", "Hoodies"]
-    : ["Baby Tees", "Oversize", "Hoodies"];
+  const categoriasMostrar = genero === 'MEN' ? ["Playeras", "Oversize", "Hoodies"] : ["Baby Tees", "Oversize", "Hoodies"];
+
+  const scrollToContent = () => { document.getElementById('archivo-lanzamientos')?.scrollIntoView({ behavior: 'smooth' }); };
 
   return (
     <motion.div
       className="min-h-screen transition-colors duration-700 ease-in-out selection:bg-black selection:text-white font-sans"
       animate={{ backgroundColor: actual.bgColor, color: actual.textColor }}
     >
+      {/* CSS: SIN CURSOR PERSONALIZADO */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Montserrat:wght@200;400;700&display=swap');
 
+        .hero-wrap { position:relative; width:100%; height:80vh; display:flex !important; flex-direction: row !important; overflow:hidden; background:#111; cursor: default; }
+        
+        .hero-divider { position:absolute; left:50%; top:0; bottom:0; width:1px; background:rgba(255,255,255,0.3); z-index:20; transform:translateX(-50%); transition:left .75s cubic-bezier(.77,0,.18,1); }
+        .hero-wrap:has(.side-w:hover) .hero-divider { left:58%; }
+        .hero-wrap:has(.side-m:hover) .hero-divider { left:42%; }
+
+        .hero-side { position:relative; height:100%; overflow:hidden; width:50% !important; transition:width .75s cubic-bezier(.77,0,.18,1); flex-shrink:0; cursor: pointer; }
+        .hero-wrap:has(.side-w:hover) .side-w { width:58% !important; }
+        .hero-wrap:has(.side-w:hover) .side-m { width:42% !important; }
+        .hero-wrap:has(.side-m:hover) .side-m { width:58% !important; }
+        .hero-wrap:has(.side-m:hover) .side-w { width:42% !important; }
+
+        .bg-wrap { position:absolute; inset:0; overflow:hidden; }
+        .bg-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform .75s cubic-bezier(.77,0,.18,1), filter .75s ease; }
+        
+        .hero-side:hover .bg-wrap img { transform: scale(1.04); filter: brightness(0.75); }
+
+        .hero-overlay { position:absolute; inset:0; opacity:0; z-index:2; transition:opacity .75s ease; pointer-events:none; background: rgba(0,0,0,0.2); }
+        .hero-side:hover .hero-overlay { opacity:1; }
+
+        .cnt { position:absolute; inset:0; z-index:5; display:flex; flex-direction:column; justify-content:flex-end; padding: 30px; }
+        .side-w .cnt { align-items:flex-start; text-align: left; }
+        .side-m .cnt { align-items:flex-end; text-align:right; }
+
+        .brand { font-family:'Cormorant Garamond',serif; font-size:clamp(1.5rem, 5vw, 4.5rem); color:#fff; text-transform:uppercase; line-height:1; margin-bottom:10px; text-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .tag { font-family:'Montserrat',sans-serif; font-size: 0.6rem; letter-spacing: 0.2em; color: rgba(255,255,255,0.7); text-transform: uppercase; }
+
+        @media(max-width:768px){
+          .hero-wrap { height: 60vh; flex-direction: row !important; }
+          .hero-side { width: 50% !important; }
+          .brand { font-size: 1.2rem; }
+          .cnt { padding: 15px; }
+          .tag { display: none; }
+        }
+      `}} />
+
+      {/* --- HEADER --- */}
       <div className="sticky top-0 z-50 w-full flex flex-col">
         <header className="bg-white/80 backdrop-blur-md text-black px-4 py-4 border-b border-gray-100 relative">
           <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-y-4 gap-x-3">
@@ -245,177 +214,81 @@ export default function InicioOMERTA() {
             </Link>
 
             <div className="w-full order-last lg:order-none lg:flex-1 lg:max-w-xl mx-auto relative z-50">
-              <form onSubmit={ejecutarBusqueda} className="flex items-center bg-white rounded-full px-5 py-3 md:py-2.5 border border-gray-200 shadow-sm focus-within:border-black focus-within:ring-2 focus-within:ring-black/5 transition-all">
-                <button type="submit"><Search size={16} className="text-gray-400 mr-3 hover:text-black transition-colors" /></button>
-                <input
-                  type="text"
-                  value={terminoBusqueda}
-                  onChange={(e) => {
-                    setTerminoBusqueda(e.target.value);
-                    setMostrandoResultados(true);
-                  }}
-                  onFocus={() => setMostrandoResultados(true)}
-                  onBlur={() => setTimeout(() => setMostrandoResultados(false), 200)}
-                  placeholder="Buscar en el archivo (Ej. Playera)..."
-                  className="w-full bg-transparent outline-none text-xs font-bold tracking-wide"
-                />
+              <form onSubmit={ejecutarBusqueda} className="flex items-center bg-white rounded-full px-5 py-3 border border-gray-200 shadow-sm focus-within:border-black transition-all">
+                <button type="submit"><Search size={16} className="text-gray-400 mr-3" /></button>
+                <input type="text" value={terminoBusqueda} onChange={(e) => setTerminoBusqueda(e.target.value)} placeholder="Buscar en el archivo..." className="w-full bg-transparent outline-none text-xs font-bold" />
               </form>
-
-              <AnimatePresence>
-                {mostrandoResultados && terminoBusqueda.length > 0 && (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute top-full left-0 right-0 mt-3 bg-white border border-gray-100 rounded-3xl shadow-2xl overflow-hidden z-[100] max-h-[60vh] overflow-y-auto">
-                    {resultadosBusqueda.length > 0 ? (
-                      <div className="p-2">
-                        {resultadosBusqueda.map(prod => (
-                          <Link key={prod.handle} href={`/products/${prod.handle}`} className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-2xl transition-colors group">
-                            <div className="w-14 h-16 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
-                              <img src={prod.img} alt={prod.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                            </div>
-                            <div className="flex-1 min-w-0"><h4 className="text-xs font-black uppercase tracking-widest truncate group-hover:text-gray-600 transition-colors">{prod.name}</h4></div>
-                            <ChevronRight size={16} className="text-gray-300 group-hover:text-black transition-colors mr-2" />
-                          </Link>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="p-10 text-center flex flex-col items-center justify-center">
-                        <Search size={32} className="text-gray-200 mb-4" />
-                        <div className="text-xs font-black text-gray-400 uppercase tracking-widest">Sin coincidencias en el archivo</div>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
             </div>
 
-            <div className="flex items-center space-x-4 md:space-x-8 text-[10px] font-black uppercase tracking-widest bg-black text-white px-5 py-3 md:px-6 rounded-full shadow-xl">
-              <Link href="/closet" className="flex items-center gap-2 relative hover:text-gray-300 transition-colors">
-                <LayoutGrid size={16} />
-                <span className="hidden lg:inline">Closet</span>
-                {cantidadTotalCloset > 0 && (
-                  <span className="absolute -top-2 -right-3 bg-red-600 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border border-black shadow-sm">
-                    {cantidadTotalCloset}
-                  </span>
-                )}
+            <div className="flex items-center space-x-4 md:space-x-8 text-[10px] font-black uppercase tracking-widest bg-black text-white px-5 py-3 rounded-full shadow-xl">
+              <Link href="/closet" className="flex items-center gap-2 relative">
+                <LayoutGrid size={16} /> <span className="hidden lg:inline">Closet</span>
+                {cantidadTotalCloset > 0 && <span className="absolute -top-2 -right-3 bg-red-600 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border border-black">{cantidadTotalCloset}</span>}
               </Link>
-              <button className="flex items-center gap-2 hover:text-gray-300 transition-colors">
-                <Bell size={16} /><span className="hidden lg:inline">Notificaciones</span>
-              </button>
-              <Link href="/login" className="flex items-center gap-2 hover:text-gray-300 transition-colors">
-                <User size={16} /><span className="hidden lg:inline">{isLoggedIn ? userName : 'Entrar'}</span>
-              </Link>
+              <button className="flex items-center gap-2"><Bell size={16} /></button>
+              <Link href="/login" className="flex items-center gap-2"><User size={16} /><span className="hidden lg:inline">{isLoggedIn ? userName : 'Entrar'}</span></Link>
               <div className="w-[1px] h-4 bg-zinc-700 hidden lg:block"></div>
-              <Link href="/carrito" className="flex items-center gap-2 relative hover:text-gray-300 transition-colors">
-                <ShoppingBag size={16} />
-                <span className="hidden lg:inline">Carrito</span>
-                {cantidadTotalCarrito > 0 && (
-                  <span className="absolute -top-2 -right-3 bg-white text-black text-[9px] w-4 h-4 rounded-full flex items-center justify-center border border-black shadow-sm">
-                    {cantidadTotalCarrito}
-                  </span>
-                )}
+              <Link href="/carrito" className="flex items-center gap-2 relative">
+                <ShoppingBag size={16} /> <span className="hidden lg:inline">Carrito</span>
+                {cantidadTotalCarrito > 0 && <span className="absolute -top-2 -right-3 bg-white text-black text-[9px] w-4 h-4 rounded-full flex items-center justify-center border border-black">{cantidadTotalCarrito}</span>}
               </Link>
             </div>
           </div>
         </header>
-
         <div className="bg-black text-white py-2 px-4 text-center text-[10px] md:text-xs font-black uppercase tracking-widest shadow-md">
-          <AnimatePresence mode="wait">
-            <motion.span key={totalDineroCarrito >= META_ENVIO_GRATIS ? 'gratis' : 'falta'} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }} transition={{ duration: 0.3 }}>
-              {totalDineroCarrito === 0 ? `ENVÍO GRATIS EN COMPRAS MAYORES A $${META_ENVIO_GRATIS.toLocaleString()} MXN 📦` : totalDineroCarrito >= META_ENVIO_GRATIS ? "¡HAS DESBLOQUEADO EL ENVÍO GRATIS 🚚" : `FALTAN $${faltaParaEnvio.toLocaleString()} MXN PARA ENVÍO GRATIS 📦`}
-            </motion.span>
-          </AnimatePresence>
+          {totalDineroCarrito >= META_ENVIO_GRATIS ? "¡HAS DESBLOQUEADO EL ENVÍO GRATIS! 🚚" : `FALTAN $${faltaParaEnvio} MXN PARA ENVÍO GRATIS 📦`}
         </div>
       </div>
 
-      <nav className="w-full pt-10 flex flex-col items-center gap-8 relative z-10">
-        <div className="bg-white/30 backdrop-blur-sm p-1 rounded-full flex border border-gray-300 shadow-inner">
-          <button onClick={() => setGenero('MEN')} className={`px-12 py-3 rounded-full text-xs font-bold tracking-widest transition-all ${genero === 'MEN' ? 'bg-black text-white shadow-lg' : 'text-gray-400'}`}>OMERTA MEN</button>
-          <button onClick={() => setGenero('WOMAN')} className={`px-12 py-3 rounded-full text-xs font-bold tracking-widest transition-all ${genero === 'WOMAN' ? 'bg-[#A89F91] text-white shadow-lg' : 'text-gray-400'}`}>OMERTA WOMAN</button>
-        </div>
-        <div className="w-full max-w-4xl px-4 border-b border-gray-200/50">
-          <div className="flex overflow-x-auto justify-center gap-10 pb-4 no-scrollbar">
-            {actual.subCategorias.map((sub) => (
-              <Link key={sub + genero} href={`/categoria/${crearSlug(genero + '-' + sub)}`} className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-gray-400 hover:text-black transition-colors whitespace-nowrap">{sub}</Link>
-            ))}
+      {/* --- HERO DIVIDIDO --- */}
+      <div className="hero-wrap" id="omerta-split-hero">
+        <div className="hero-side side-w" onClick={() => { setGenero('WOMAN'); scrollToContent(); }}>
+          <div className="bg-wrap">
+            <img src="/omerta-woman.png" alt="Omerta Woman" />
           </div>
+          <div className="hero-overlay"></div>
+          <div className="cnt">
+            <div className="tag">Colección</div>
+            <div className="brand">Omerta<br />Woman</div>
+          </div>
+        </div>
+
+        <div className="hero-divider"></div>
+
+        <div className="hero-side side-m" onClick={() => { setGenero('MEN'); scrollToContent(); }}>
+          <div className="bg-wrap">
+            <img src="/omerta-men.png" alt="Omerta Men" />
+          </div>
+          <div className="hero-overlay"></div>
+          <div className="cnt">
+            <div className="tag">Colección</div>
+            <div className="brand">Omerta<br />Men</div>
+          </div>
+        </div>
+      </div>
+
+      {/* --- NAVEGACIÓN --- */}
+      <nav id="archivo-lanzamientos" className="w-full pt-10 pb-8 flex flex-col items-center gap-8 border-b border-gray-100">
+        <div className="flex overflow-x-auto justify-center gap-10 no-scrollbar px-4 w-full">
+          {actual.subCategorias.map((sub) => (
+            <Link key={sub + genero} href={`/categoria/${crearSlug(genero + '-' + sub)}`} className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-gray-400 hover:text-black transition-colors whitespace-nowrap">{sub}</Link>
+          ))}
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 py-12 flex flex-col md:flex-row items-center justify-between min-h-[55vh] gap-8 relative z-10">
-        <div className="w-full md:w-1/2 text-center md:text-left h-40 flex items-center">
-          <h2 className="text-3xl md:text-6xl font-black tracking-tighter leading-[1.1] uppercase">
-            <AnimatePresence mode="wait">
-              <motion.span key={genero} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <Typewriter key={genero} onInit={(t) => t.typeString(actual.frase).start()} options={{ delay: 45, cursor: '|', wrapperClassName: "text-black" }} />
-              </motion.span>
-            </AnimatePresence>
-          </h2>
-        </div>
-        <div className="w-full md:w-1/2 h-[50vh] flex justify-center">
-          <Canvas camera={{ position: [0, 0, 4], fov: 50 }}>
-            <ambientLight intensity={2.5} /><spotLight position={[10, 10, 10]} intensity={3} /><ControlesCamara />
-            <Suspense fallback={<PantallaCarga />}><group key={genero}><Playera3D /></group></Suspense>
-          </Canvas>
-        </div>
-      </main>
-
-      <section className="w-full bg-black/5 py-24 relative z-10">
-        <div className="max-w-[1400px] mx-auto px-4 md:px-8">
-          <h3 className="text-2xl md:text-4xl font-black uppercase tracking-tighter mb-12">OMERTA {genero}</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {actual.lookbook.map((item, i) => (
-              <motion.div key={item.title + genero} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="group cursor-pointer">
-                <div className="aspect-[4/5] overflow-hidden bg-gray-200 relative">
-                  <img src={item.img} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                </div>
-                <div className="mt-4 flex items-center gap-1 font-black uppercase tracking-tighter text-lg italic">{item.title} <ChevronRight size={20} /></div>
-                <p className="text-sm text-gray-500">{item.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="w-full bg-black text-white py-32 px-4 relative z-10">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
-          <div>
-            <h2 className="text-5xl md:text-7xl font-black italic tracking-tighter leading-[0.9] mb-8">OMERTA NO ES <br /> UNA ETIQUETA. <br /> ES UN PROTOCOLO.</h2>
-            <Link href="/about" className="inline-flex items-center gap-3 bg-white text-black px-8 py-4 rounded-full font-bold uppercase tracking-widest text-xs hover:scale-105 transition-transform">Entrar al Archivo <ArrowRight size={16} /></Link>
-          </div>
-          <div className="aspect-square bg-zinc-900 rounded-3xl overflow-hidden relative">
-            <img src="https://images.unsplash.com/photo-1604176354204-9268737828e4?q=80&w=1000" className="w-full h-full object-cover opacity-80" alt="Protocol" />
-          </div>
-        </div>
-      </section>
-
-      {/* ========================================================= */}
-      {/* SECCIONES DIVIDIDAS CON TARJETAS INTERACTIVAS */}
-      {/* ========================================================= */}
+      {/* --- LANZAMIENTOS --- */}
       <section className="w-full py-24 pl-4 md:pl-12 bg-white overflow-hidden relative z-10">
-        <h3 className="text-3xl md:text-5xl font-black tracking-tighter uppercase mb-16 italic text-gray-200">
-          {cargandoShopify ? "SINCRONIZANDO ARSENAL..." : `ESTILOS ${genero}`}
-        </h3>
-
-        {!cargandoShopify && categoriasMostrar.map(cat => {
+        <h3 className="text-3xl md:text-5xl font-black tracking-tighter uppercase mb-16 italic text-gray-200">ARCHIVO {genero}</h3>
+        {categoriasMostrar.map(cat => {
           const categoriaSlug = crearSlug(cat);
-          const productosDeEstaCategoria = productosFiltrados.filter(p =>
-            p.tags.some((tag: string) => tag.toLowerCase().includes(categoriaSlug))
-          );
-
+          const productosDeEstaCategoria = productosFiltrados.filter(p => p.tags.some((tag: string) => tag.toLowerCase().includes(categoriaSlug)));
           if (productosDeEstaCategoria.length === 0) return null;
-
           return (
             <div key={cat} className="mb-20">
-              <h4 className="text-xl md:text-2xl font-black uppercase tracking-[0.2em] text-black border-l-4 border-black pl-4 mb-8">
-                NUEVAS {cat}
-              </h4>
+              <h4 className="text-xl md:text-2xl font-black uppercase tracking-[0.2em] text-black border-l-4 border-black pl-4 mb-8">NUEVAS {cat}</h4>
               <div className="flex overflow-x-auto gap-6 md:gap-10 pb-8 no-scrollbar snap-x">
                 {productosDeEstaCategoria.map((prod) => (
-                  <TarjetaProductoInteractiva
-                    key={prod.id}
-                    prod={prod}
-                    favoritos={favoritos}
-                    manejarFavoritoDefault={manejarFavoritoDefault}
-                  />
+                  <TarjetaProductoInteractiva key={prod.id} prod={prod} favoritos={favoritos} manejarFavoritoDefault={manejarFavoritoDefault} />
                 ))}
               </div>
             </div>
@@ -423,36 +296,7 @@ export default function InicioOMERTA() {
         })}
       </section>
 
-      <section className="bg-[#f9f9f9] py-24 px-6 border-t border-gray-200 relative z-10">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-16">
-          <div>
-            <h4 className="font-black uppercase tracking-[0.2em] border-b-2 border-black pb-4 mb-8 text-sm">OMERTA Men Archive</h4>
-            <ul className="space-y-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
-              {["Playeras", "Oversize Heavy", "Manga Larga", "Hoodies", "Crewnecks", "Cargos", "Joggers", "Shorts"].map(item => (
-                <li key={item} className="hover:text-black transition-colors"><Link href={`/categoria/${crearSlug('men-' + item)}`}>{item}</Link></li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-black uppercase tracking-[0.2em] border-b-2 border-[#A89F91] pb-4 mb-8 text-sm">OMERTA Woman Archive</h4>
-            <ul className="space-y-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
-              {["Baby Tees", "Oversize", "Hoodies", "Bodysuits", "Wide Pants", "Leggings", "Biker Shorts"].map(item => (
-                <li key={item} className="hover:text-black transition-colors"><Link href={`/categoria/${crearSlug('woman-' + item)}`}>{item}</Link></li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-black uppercase tracking-[0.2em] border-b-2 border-gray-400 pb-4 mb-8 text-sm">Accesorios</h4>
-            <ul className="space-y-4 text-xs font-bold text-gray-400 uppercase tracking-widest">
-              {["Snapbacks", "Dad Hats", "Beanies", "Mochilas Tácticas", "Fundas Celular", "Calcetines", "Accesorios"].map(item => (
-                <li key={item} className="hover:text-black transition-colors"><Link href={`/categoria/${crearSlug('accesorios-' + item)}`}>{item}</Link></li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <footer className="bg-[#111] text-white py-20 text-center relative z-10">
+      <footer className="bg-[#111] text-white py-20 text-center">
         <div className="text-3xl font-black tracking-[0.5em] mb-6 italic">OMERTA</div>
         <p className="text-gray-600 text-[10px] uppercase tracking-widest font-mono">© 2026 ARCHIVE PROTOCOL. ALL RIGHTS RESERVED.</p>
       </footer>
