@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { getProduct, getProducts } from '../../lib/shopify';
 import { useCartStore } from '../../store/useCartStore';
+import { getProduct, getProducts } from '../../lib/shopify';
 import { ArrowLeft, ShoppingBag, Heart, Search, LayoutGrid, Bell, User, ChevronRight, Truck, ShieldCheck, RefreshCcw } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -35,30 +35,23 @@ function DescripcionTecnica({ texto }: { texto: string }) {
     );
 }
 
-// --- COMPONENTE: BARRA DE PROGRESO COMBINADA ---
+// --- COMPONENTE: BARRA DE PROGRESO EN VIVO ---
 function BarraEnvioGratis() {
+    const carrito = useCartStore((state) => state.carrito);
     const obtenerTotalCarrito = useCartStore((state) => state.obtenerTotalCarrito);
-    const favoritos = useCartStore((state) => state.favoritos);
 
-    const totalCarrito = obtenerTotalCarrito();
-    const totalCloset = favoritos.reduce((acc, item) => {
-        const precioString = String(item.precio || item.price || "0");
-        const precioNum = parseFloat(precioString.replace(/[^0-9.]/g, "")) || 0;
-        return acc + (item.rawPrice || precioNum);
-    }, 0);
-
-    const totalCombinado = totalCarrito + totalCloset;
+    const total = obtenerTotalCarrito();
     const META_ENVIO = 1050;
-    const falta = Math.max(0, META_ENVIO - totalCombinado);
-    const porcentaje = Math.min((totalCombinado / META_ENVIO) * 100, 100);
+    const falta = Math.max(0, META_ENVIO - total);
+    const porcentaje = Math.min((total / META_ENVIO) * 100, 100);
 
     return (
         <div className="w-full bg-gray-50 p-4 rounded-2xl border border-gray-100 mb-6">
             <div className="flex justify-between items-end mb-2">
                 <p className="text-[10px] font-black uppercase tracking-widest text-black">
-                    {totalCombinado >= META_ENVIO ? "¡ENVÍO GRATIS AL LLEVAR ESTO! 🚚" : "META: ENVÍO GRATIS 📦"}
+                    {total >= META_ENVIO ? "¡ENVÍO GRATIS DESBLOQUEADO! 🚚" : "ENVÍO GRATIS 📦"}
                 </p>
-                {totalCombinado < META_ENVIO && (
+                {total < META_ENVIO && (
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                         Faltan <span className="text-black font-black">${falta.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN</span>
                     </p>
@@ -72,9 +65,9 @@ function BarraEnvioGratis() {
                     transition={{ duration: 0.8, ease: "easeOut" }}
                 />
             </div>
-            {totalCombinado < META_ENVIO && (
+            {total > 0 && total < META_ENVIO && (
                 <p className="text-[9px] text-gray-400 mt-3 text-center uppercase tracking-widest">
-                    Agrega al carrito o a vigilancia para no pagar envío.
+                    Agrega este u otros productos para no pagar envío.
                 </p>
             )}
         </div>
@@ -117,7 +110,6 @@ export default function ProductPage() {
             const data = await getProduct(handle as string);
             if (data) {
                 setProducto(data);
-
                 const colores = new Set<string>();
                 const tallas = new Set<string>();
 
@@ -137,9 +129,11 @@ export default function ProductPage() {
                 setColoresDisponibles(arrayColores);
                 setTallasDisponibles(arrayTallas);
 
-                setColorSeleccionado(arrayColores[0] || '');
-                setTallaSeleccionada(arrayTallas[0] || '');
+                const colorInicial = arrayColores[0] || '';
+                const tallaInicial = arrayTallas[0] || '';
 
+                setColorSeleccionado(colorInicial);
+                setTallaSeleccionada(tallaInicial);
                 setGaleríaFiltrada(data.images.edges);
             }
             setCargando(false);
@@ -147,55 +141,31 @@ export default function ProductPage() {
         fetchProducto();
     }, [handle]);
 
-    // --- EFECTO RECALCULAR VARIANTE (CON FILTRO ESTRICTO DE PALABRAS) ---
     useEffect(() => {
         if (!producto) return;
 
-        // 1. Encontrar la variante exacta
-        const colorLower = colorSeleccionado.toLowerCase().trim();
-        const tallaLower = tallaSeleccionada.toLowerCase().trim();
-
         const nuevaVariante = producto.variants.edges.find(({ node }: any) => {
-            const titulo = node.title.toLowerCase();
             if (coloresDisponibles.length > 0) {
-                return titulo.includes(colorLower) && titulo.includes(tallaLower);
+                return node.title === `${colorSeleccionado} / ${tallaSeleccionada}` ||
+                    node.title === `${tallaSeleccionada} / ${colorSeleccionado}`;
             }
-            return titulo === tallaLower;
+            return node.title === tallaSeleccionada;
         })?.node;
 
         if (nuevaVariante) {
             setVarianteSeleccionada(nuevaVariante);
+            if (nuevaVariante.image?.url) {
+                setImagenActiva(nuevaVariante.image.url);
+            }
         }
 
-        // 2. FILTRAR GALERÍA CON COINCIDENCIA EXACTA DE PALABRAS
         if (colorSeleccionado) {
-            const fotosFiltradas = producto.images.edges.filter((img: any) => {
-                if (!img.node.altText) return false;
-
-                const textoAlt = img.node.altText.toLowerCase().trim();
-                const colorABuscar = colorSeleccionado.toLowerCase().trim();
-
-                // HACK DE INGENIERÍA:
-                // En lugar de usar .includes(), comparamos si el texto es IGUAL 
-                // o si la frase del color seleccionado aparece como una unidad completa.
-                // Esto evita que "Negro" se meta en "Negro Claro".
-                return textoAlt === colorABuscar || textoAlt.includes(` ${colorABuscar}`) || textoAlt.includes(`${colorABuscar} `);
-            });
-
-            // EL RESPALDO: Si no hay fotos por AltText, intentamos por la imagen de la variante
-            let resultadoFinal = fotosFiltradas;
-            if (resultadoFinal.length === 0 && nuevaVariante?.image?.url) {
-                resultadoFinal = producto.images.edges.filter((img: any) => img.node.url === nuevaVariante.image.url);
-            }
-
-            if (resultadoFinal.length > 0) {
-                setGaleríaFiltrada(resultadoFinal);
-                // Si cambiamos de color, ponemos la primera foto de ese color como principal
-                setImagenActiva(resultadoFinal[0].node.url);
-            } else {
-                setGaleríaFiltrada(producto.images.edges);
-            }
+            const fotosColor = producto.images.edges.filter((img: any) =>
+                img.node.altText && img.node.altText.toLowerCase().includes(colorSeleccionado.toLowerCase())
+            );
+            setGaleríaFiltrada(fotosColor.length > 0 ? fotosColor : producto.images.edges);
         }
+
     }, [colorSeleccionado, tallaSeleccionada, producto, coloresDisponibles.length]);
 
     useEffect(() => {
@@ -246,7 +216,6 @@ export default function ProductPage() {
     const precioActual = varianteSeleccionada.price?.amount || precioBase;
     const precioFormateado = `$${parseFloat(precioActual).toLocaleString()} MXN`;
 
-    // FIX: La prenda enviada al carrito ahora TIENE garantizado el ID de la variante negra/blanca/etc
     const prendaActual = {
         id: producto.id,
         shopifyId: varianteSeleccionada.id,
@@ -390,7 +359,7 @@ export default function ProductPage() {
                     {/* --- IZQUIERDA: GALERÍA DE FOTOS --- */}
                     <div className="w-full lg:w-[60%] flex flex-col-reverse lg:flex-row gap-4">
 
-                        {/* Miniaturas Filtradas */}
+                        {/* Miniaturas */}
                         <div className="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto snap-x snap-mandatory no-scrollbar lg:w-28 flex-none pb-2 lg:pb-0">
                             {galeriaFiltrada.map((img: any, i: number) => (
                                 <button
@@ -449,18 +418,16 @@ export default function ProductPage() {
                             </div>
                         )}
 
-                        {/* --- SELECTOR DE TALLAS DINÁMICO --- */}
+                        {/* --- SELECTOR DE TALLAS --- */}
                         <div className="mb-8">
                             <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] mb-4 text-gray-400">Selecciona tu talla</h3>
                             <div className="flex flex-wrap gap-3 pb-4">
                                 {tallasDisponibles.map((talla) => {
-                                    const colorLower = colorSeleccionado.toLowerCase();
-                                    const tallaLower = talla.toLowerCase();
-
-                                    const varianteCombo = producto.variants.edges.find(({ node }: any) => {
-                                        const t = node.title.toLowerCase();
-                                        return (t.includes(colorLower) && t.includes(tallaLower)) || t === tallaLower;
-                                    })?.node;
+                                    const varianteCombo = producto.variants.edges.find(({ node }: any) =>
+                                        node.title === `${colorSeleccionado} / ${talla}` ||
+                                        node.title === `${talla} / ${colorSeleccionado}` ||
+                                        node.title === talla
+                                    )?.node;
 
                                     const isAvailable = varianteCombo?.availableForSale ?? false;
 
@@ -529,7 +496,7 @@ export default function ProductPage() {
                             <div className="flex items-start gap-4">
                                 <Truck size={20} className="text-black mt-1" />
                                 <div>
-                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-black mb-1">Envíos Seguros</h4>
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-black mb-1">Envío a todo México</h4>
                                     <p className="text-xs text-gray-500">Llegada estimada: <span className="font-bold text-black">{fechaEntrega || 'Calculando...'}</span></p>
                                 </div>
                             </div>
@@ -559,7 +526,7 @@ export default function ProductPage() {
                 {productosRecomendados.length > 0 && (
                     <section className="mt-24 pt-16 border-t border-gray-100">
                         <h3 className="text-2xl md:text-3xl font-black tracking-tighter uppercase mb-10 text-black">
-                            COMBINA TU ROPA OUTFIT
+                            AGREGA A TU OUTFIT
                         </h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
                             {productosRecomendados.map((prod) => (

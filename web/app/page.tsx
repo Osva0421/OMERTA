@@ -56,16 +56,24 @@ export default function InicioOMERTA() {
     async function extraerArsenal() {
       try {
         const data = await getProducts();
-        const formateados = data.map((item: any) => ({
-          id: item.node.id,
-          handle: item.node.handle,
-          shopifyId: item.node.variants?.edges?.[0]?.node?.id || "ID_VACIO",
-          name: item.node.title,
-          price: `$${parseFloat(item.node.priceRange.minVariantPrice.amount).toLocaleString()} MXN`,
-          rawPrice: parseFloat(item.node.priceRange.minVariantPrice.amount),
-          img: item.node.images.edges?.[0]?.node?.url || 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=800',
-          tags: item.node.tags || [],
-        }));
+        const formateados = data.map((item: any) => {
+          // --- FIX: EXTRAEMOS LA VARIANTE POR DEFECTO PARA EL CLOSET ---
+          const primeraVariante = item.node.variants?.edges?.[0]?.node;
+
+          return {
+            id: item.node.id,
+            handle: item.node.handle,
+            shopifyId: primeraVariante?.id || "ID_VACIO",
+            variantTitle: primeraVariante?.title || "Unitalla",
+            name: item.node.title,
+            price: `$${parseFloat(item.node.priceRange.minVariantPrice.amount).toLocaleString()} MXN`,
+            rawPrice: parseFloat(item.node.priceRange.minVariantPrice.amount),
+            img: primeraVariante?.image?.url || item.node.images.edges?.[0]?.node?.url || '',
+            tags: item.node.tags || [],
+            tituloVariante: item.node.variants?.edges?.[0]?.node?.title || "Unitalla",
+            imagenVariante: item.node.variants?.edges?.[0]?.node?.image?.url || null
+          };
+        });
         setProductosShopify(formateados);
       } catch (error) {
         console.error("Error al sincronizar con Shopify:", error);
@@ -76,21 +84,22 @@ export default function InicioOMERTA() {
     extraerArsenal();
   }, []);
 
-  // --- CÁLCULOS PARA EL ENVÍO GRATIS ---
-  const cantidadTotalCarrito = carrito?.reduce((total, item) => total + (item.cantidad || 1), 0) || 0;
-  const cantidadTotalCloset = favoritos?.reduce((total, item) => total + (item.cantidad || 1), 0) || 0;
-
+  // --- LÓGICA DE ENVÍO GRATIS ---
   const totalDineroCarrito = carrito?.reduce((total, item) => total + ((item.rawPrice || 0) * (item.cantidad || 1)), 0) || 0;
   const META_ENVIO_GRATIS = 1050;
   const faltaParaEnvio = META_ENVIO_GRATIS - totalDineroCarrito;
 
-  // --- EL MOTOR DE FILTRADO EN VIVO ---
+  // --- CONTADORES NAVBAR ---
+  const cantidadTotalCarrito = carrito?.reduce((total, item) => total + (item.cantidad || 1), 0) || 0;
+  const cantidadTotalCloset = favoritos?.length || 0;
+
+  // --- FILTRADO POR GÉNERO ---
   const productosFiltrados = productosShopify.filter((prod) => {
     const prefijo = genero === 'MEN' ? 'men-' : 'woman-';
     return prod.tags.some((tag: string) => tag.toLowerCase().startsWith(prefijo));
   });
 
-  // --- LÓGICA DEL BUSCADOR EN VIVO ---
+  // --- LÓGICA DEL BUSCADOR ---
   const resultadosBusqueda = terminoBusqueda.trim() === ''
     ? []
     : productosShopify.filter(p => p.name.toLowerCase().includes(terminoBusqueda.toLowerCase()));
@@ -100,6 +109,27 @@ export default function InicioOMERTA() {
     if (terminoBusqueda.trim()) {
       router.push(`/buscar?q=${encodeURIComponent(terminoBusqueda)}`);
     }
+  };
+
+  // --- FIX: MANEJAR FAVORITO CON VARIANTE DEFAULT (CORREGIDO PARA EL CLOSET) ---
+  const manejarFavoritoDefault = (prod: any) => {
+    // 1. Traducimos "Negro / M" a "Negro - M" para que el Clóset no se confunda
+    let varianteFormateada = prod.tituloVariante.replace(/\s*\/\s*/g, ' - ');
+    if (varianteFormateada.toLowerCase() === 'default title') {
+      varianteFormateada = 'Unitalla';
+    }
+
+    // 2. Construimos la prenda perfecta para el Clóset
+    const prendaParaCloset = {
+      id: prod.id,
+      shopifyId: prod.shopifyId,
+      name: `${prod.name} (${varianteFormateada})`, // Ej: Soft Silence (Negro - M)
+      price: prod.price,
+      rawPrice: prod.rawPrice,
+      img: prod.imagenVariante || prod.img // Aseguramos usar la foto de ese color exacto
+    };
+
+    toggleFavorito(prendaParaCloset);
   };
 
   const config = {
@@ -135,18 +165,14 @@ export default function InicioOMERTA() {
       animate={{ backgroundColor: actual.bgColor, color: actual.textColor }}
     >
 
-      {/* --- NUEVO CONTENEDOR FIJO (HEADER + BANNER) --- */}
+      {/* --- HEADER FIJO --- */}
       <div className="sticky top-0 z-50 w-full flex flex-col">
-
-        {/* EL NAVBAR (Ahora arriba) */}
         <header className="bg-white/80 backdrop-blur-md text-black px-4 py-4 border-b border-gray-100 relative">
           <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-y-4 gap-x-3">
-
             <Link href="/" className="flex-shrink-0">
               <img src="/monograma-omerta.png" alt="OMERTA" className="h-10 md:h-12 w-auto hover:scale-105 transition-transform" />
             </Link>
 
-            {/* BUSCADOR EN VIVO */}
             <div className="w-full order-last lg:order-none lg:flex-1 lg:max-w-xl mx-auto relative z-50">
               <form onSubmit={ejecutarBusqueda} className="flex items-center bg-white rounded-full px-5 py-3 md:py-2.5 border border-gray-200 shadow-sm focus-within:border-black focus-within:ring-2 focus-within:ring-black/5 transition-all">
                 <button type="submit"><Search size={16} className="text-gray-400 mr-3 hover:text-black transition-colors" /></button>
@@ -164,29 +190,17 @@ export default function InicioOMERTA() {
                 />
               </form>
 
-              {/* CAJA FLOTANTE DE RESULTADOS */}
               <AnimatePresence>
                 {mostrandoResultados && terminoBusqueda.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    className="absolute top-full left-0 right-0 mt-3 bg-white border border-gray-100 rounded-3xl shadow-2xl overflow-hidden z-[100] max-h-[60vh] overflow-y-auto"
-                  >
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute top-full left-0 right-0 mt-3 bg-white border border-gray-100 rounded-3xl shadow-2xl overflow-hidden z-[100] max-h-[60vh] overflow-y-auto">
                     {resultadosBusqueda.length > 0 ? (
                       <div className="p-2">
                         {resultadosBusqueda.map(prod => (
-                          <Link
-                            key={prod.handle}
-                            href={`/products/${prod.handle}`}
-                            className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-2xl transition-colors group"
-                          >
+                          <Link key={prod.handle} href={`/products/${prod.handle}`} className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-2xl transition-colors group">
                             <div className="w-14 h-16 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
                               <img src={prod.img} alt={prod.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-xs font-black uppercase tracking-widest truncate group-hover:text-gray-600 transition-colors">{prod.name}</h4>
-                            </div>
+                            <div className="flex-1 min-w-0"><h4 className="text-xs font-black uppercase tracking-widest truncate group-hover:text-gray-600 transition-colors">{prod.name}</h4></div>
                             <ChevronRight size={16} className="text-gray-300 group-hover:text-black transition-colors mr-2" />
                           </Link>
                         ))}
@@ -194,9 +208,7 @@ export default function InicioOMERTA() {
                     ) : (
                       <div className="p-10 text-center flex flex-col items-center justify-center">
                         <Search size={32} className="text-gray-200 mb-4" />
-                        <div className="text-xs font-black text-gray-400 uppercase tracking-widest">
-                          Sin coincidencias en el archivo
-                        </div>
+                        <div className="text-xs font-black text-gray-400 uppercase tracking-widest">Sin coincidencias en el archivo</div>
                       </div>
                     )}
                   </motion.div>
@@ -214,19 +226,13 @@ export default function InicioOMERTA() {
                   </span>
                 )}
               </Link>
-
               <button className="flex items-center gap-2 hover:text-gray-300 transition-colors">
-                <Bell size={16} />
-                <span className="hidden lg:inline">Notificaciones</span>
+                <Bell size={16} /><span className="hidden lg:inline">Notificaciones</span>
               </button>
-
               <Link href="/login" className="flex items-center gap-2 hover:text-gray-300 transition-colors">
-                <User size={16} />
-                <span className="hidden lg:inline">{isLoggedIn ? userName : 'Entrar'}</span>
+                <User size={16} /><span className="hidden lg:inline">{isLoggedIn ? userName : 'Entrar'}</span>
               </Link>
-
               <div className="w-[1px] h-4 bg-zinc-700 hidden lg:block"></div>
-
               <Link href="/carrito" className="flex items-center gap-2 relative hover:text-gray-300 transition-colors">
                 <ShoppingBag size={16} />
                 <span className="hidden lg:inline">Carrito</span>
@@ -240,27 +246,14 @@ export default function InicioOMERTA() {
           </div>
         </header>
 
-        {/* ANNOUNCEMENT BAR DINÁMICA (Ahora debajo del Navbar) */}
         <div className="bg-black text-white py-2 px-4 text-center text-[10px] md:text-xs font-black uppercase tracking-widest shadow-md">
           <AnimatePresence mode="wait">
-            <motion.span
-              key={totalDineroCarrito >= META_ENVIO_GRATIS ? 'gratis' : 'falta'}
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 5 }}
-              transition={{ duration: 0.3 }}
-            >
-              {totalDineroCarrito === 0
-                ? `ENVÍO GRATIS EN COMPRAS MAYORES A $${META_ENVIO_GRATIS.toLocaleString()} MXN 📦`
-                : totalDineroCarrito >= META_ENVIO_GRATIS
-                  ? "¡FELICIDADES! HAS DESBLOQUEADO EL ENVÍO GRATIS 🚚"
-                  : `FALTAN $${faltaParaEnvio.toLocaleString()} MXN PARA OBTENER ENVÍO GRATIS 📦`}
+            <motion.span key={totalDineroCarrito >= META_ENVIO_GRATIS ? 'gratis' : 'falta'} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }} transition={{ duration: 0.3 }}>
+              {totalDineroCarrito === 0 ? `ENVÍO GRATIS EN COMPRAS MAYORES A $${META_ENVIO_GRATIS.toLocaleString()} MXN 📦` : totalDineroCarrito >= META_ENVIO_GRATIS ? "¡HAS DESBLOQUEADO EL ENVÍO GRATIS 🚚" : `FALTAN $${faltaParaEnvio.toLocaleString()} MXN PARA ENVÍO GRATIS 📦`}
             </motion.span>
           </AnimatePresence>
         </div>
       </div>
-      {/* --- FIN DEL CONTENEDOR FIJO --- */}
-
 
       {/* --- NAVEGACIÓN --- */}
       <nav className="w-full pt-10 flex flex-col items-center gap-8 relative z-10">
@@ -271,15 +264,13 @@ export default function InicioOMERTA() {
         <div className="w-full max-w-4xl px-4 border-b border-gray-200/50">
           <div className="flex overflow-x-auto justify-center gap-10 pb-4 no-scrollbar">
             {actual.subCategorias.map((sub) => (
-              <Link key={sub + genero} href={`/categoria/${crearSlug(genero + '-' + sub)}`} className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-gray-400 hover:text-black transition-colors whitespace-nowrap">
-                {sub}
-              </Link>
+              <Link key={sub + genero} href={`/categoria/${crearSlug(genero + '-' + sub)}`} className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-gray-400 hover:text-black transition-colors whitespace-nowrap">{sub}</Link>
             ))}
           </div>
         </div>
       </nav>
 
-      {/* --- MAIN HERO --- */}
+      {/* --- HERO --- */}
       <main className="max-w-7xl mx-auto px-4 py-12 flex flex-col md:flex-row items-center justify-between min-h-[55vh] gap-8 relative z-10">
         <div className="w-full md:w-1/2 text-center md:text-left h-40 flex items-center">
           <h2 className="text-3xl md:text-6xl font-black tracking-tighter leading-[1.1] uppercase">
@@ -298,7 +289,7 @@ export default function InicioOMERTA() {
         </div>
       </main>
 
-      {/* --- SECCIÓN LOOKBOOK --- */}
+      {/* --- LOOKBOOK --- */}
       <section className="w-full bg-black/5 py-24 relative z-10">
         <div className="max-w-[1400px] mx-auto px-4 md:px-8">
           <h3 className="text-2xl md:text-4xl font-black uppercase tracking-tighter mb-12">OMERTA {genero}</h3>
@@ -308,9 +299,7 @@ export default function InicioOMERTA() {
                 <div className="aspect-[4/5] overflow-hidden bg-gray-200 relative">
                   <img src={item.img} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                 </div>
-                <div className="mt-4 flex items-center gap-1 font-black uppercase tracking-tighter text-lg italic">
-                  {item.title} <ChevronRight size={20} />
-                </div>
+                <div className="mt-4 flex items-center gap-1 font-black uppercase tracking-tighter text-lg italic">{item.title} <ChevronRight size={20} /></div>
                 <p className="text-sm text-gray-500">{item.desc}</p>
               </motion.div>
             ))}
@@ -318,14 +307,12 @@ export default function InicioOMERTA() {
         </div>
       </section>
 
-      {/* --- SECCIÓN PROTOCOLO --- */}
+      {/* --- PROTOCOLO --- */}
       <section className="w-full bg-black text-white py-32 px-4 relative z-10">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
           <div>
             <h2 className="text-5xl md:text-7xl font-black italic tracking-tighter leading-[0.9] mb-8">OMERTA NO ES <br /> UNA ETIQUETA. <br /> ES UN PROTOCOLO.</h2>
-            <Link href="/about" className="inline-flex items-center gap-3 bg-white text-black px-8 py-4 rounded-full font-bold uppercase tracking-widest text-xs hover:scale-105 transition-transform">
-              Entrar al Archivo <ArrowRight size={16} />
-            </Link>
+            <Link href="/about" className="inline-flex items-center gap-3 bg-white text-black px-8 py-4 rounded-full font-bold uppercase tracking-widest text-xs hover:scale-105 transition-transform">Entrar al Archivo <ArrowRight size={16} /></Link>
           </div>
           <div className="aspect-square bg-zinc-900 rounded-3xl overflow-hidden relative">
             <img src="https://images.unsplash.com/photo-1604176354204-9268737828e4?q=80&w=1000" className="w-full h-full object-cover opacity-80" alt="Protocol" />
@@ -333,22 +320,21 @@ export default function InicioOMERTA() {
         </div>
       </section>
 
-      {/* --- ÚLTIMOS LANZAMIENTOS CON FILTRO INTELIGENTE --- */}
+      {/* --- LANZAMIENTOS CON FIX FAVORITO --- */}
       <section className="w-full py-24 pl-4 md:pl-12 bg-white overflow-hidden relative z-10">
         <h3 className="text-2xl font-black tracking-tighter uppercase mb-12">
           {cargandoShopify ? "SINCRONIZANDO ARSENAL..." : `Últimos Lanzamientos ${genero}`}
         </h3>
         <div className="flex overflow-x-auto gap-6 md:gap-10 pb-8 no-scrollbar snap-x">
-
-          {productosFiltrados.length > 0 ? productosFiltrados.map((prod) => {
-            const esFavorito = (favoritos || []).some((f: any) => f.id === prod.id);
+          {productosFiltrados.map((prod) => {
+            const esFavorito = (favoritos || []).some((f: any) => f.shopifyId === prod.shopifyId);
             return (
               <div key={prod.id} className="w-[220px] md:w-[350px] lg:w-[400px] flex-none snap-center group relative flex flex-col cursor-pointer">
                 <button
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleFavorito(prod); }}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); manejarFavoritoDefault(prod); }}
                   className="absolute top-4 right-4 z-20 p-2 md:p-3 bg-white/80 backdrop-blur-md rounded-full border border-gray-100 shadow-sm hover:scale-110 transition-all"
                 >
-                  <motion.div key={esFavorito ? "full" : "empty"} initial={{ scale: 0.5 }} animate={{ scale: 1 }}>
+                  <motion.div key={esFavorito ? "full" : "empty"} animate={{ scale: esFavorito ? [1, 1.3, 1] : 1 }}>
                     <Heart size={18} className={esFavorito ? "text-red-500 fill-red-500" : "text-gray-400"} />
                   </motion.div>
                 </button>
@@ -357,12 +343,8 @@ export default function InicioOMERTA() {
                   <Link href={`/products/${prod.handle}`} className="block w-full h-full">
                     <img src={prod.img} alt={prod.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                   </Link>
-                  <div className="absolute bottom-0 w-full p-4 translate-y-0 md:translate-y-full md:group-hover:translate-y-0 transition-transform duration-300 pointer-events-none md:pointer-events-auto">
-                    <Link href={`/products/${prod.handle}`} className="pointer-events-auto">
-                      <div className="w-full bg-black text-white text-[10px] md:text-xs font-bold px-6 py-5 md:py-6 uppercase tracking-widest shadow-lg flex justify-center items-center rounded-xl md:rounded-2xl">
-                        Selecciona tu talla
-                      </div>
-                    </Link>
+                  <div className="absolute bottom-0 w-full p-4 translate-y-0 md:translate-y-full md:group-hover:translate-y-0 transition-transform duration-300">
+                    <Link href={`/products/${prod.handle}`} className="w-full bg-black text-white text-[10px] md:text-xs font-bold px-6 py-5 md:py-6 uppercase tracking-widest shadow-lg flex justify-center items-center rounded-xl md:rounded-2xl">Selecciona tu talla</Link>
                   </div>
                 </div>
 
@@ -372,17 +354,11 @@ export default function InicioOMERTA() {
                 </Link>
               </div>
             );
-          }) : (
-            !cargandoShopify && (
-              <div className="text-xs font-bold text-gray-400 py-10 uppercase tracking-widest text-center w-full">
-                No hay nuevos lanzamientos en este sector.
-              </div>
-            )
-          )}
+          })}
         </div>
       </section>
 
-      {/* --- FOOTER DE CATEGORÍAS --- */}
+      {/* --- FOOTER CATEGORÍAS --- */}
       <section className="bg-[#f9f9f9] py-24 px-6 border-t border-gray-200 relative z-10">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-16">
           <div>
