@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, ShoppingBag, User, LayoutGrid, Bell, ChevronRight, ArrowRight, Heart } from 'lucide-react';
 import Link from 'next/link';
@@ -38,6 +38,81 @@ const crearSlug = (texto: string) => {
   return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-');
 };
 
+// =====================================================================
+// NUEVO MOTOR: TARJETA INTERACTIVA CON SLIDESHOW (HOVER EN PC, SWIPE MÓVIL)
+// =====================================================================
+function TarjetaProductoInteractiva({ prod, favoritos, manejarFavoritoDefault }: any) {
+  const [indiceActivo, setIndiceActivo] = useState(0);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const iniciarHover = () => {
+    // Solo activamos el movimiento automático en pantallas de PC
+    if (window.matchMedia("(min-width: 768px)").matches && prod.galeria && prod.galeria.length > 1) {
+      timerRef.current = setInterval(() => {
+        setIndiceActivo((prev) => (prev + 1) % prod.galeria.length);
+      }, 1200); // Pasa a la siguiente foto cada 1.2 segundos
+    }
+  };
+
+  const detenerHover = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    setIndiceActivo(0); // Regresa a la primera foto al quitar el cursor
+  };
+
+  const esFavorito = (favoritos || []).some((f: any) => f.shopifyId === prod.shopifyId);
+
+  return (
+    <div
+      className="w-[220px] md:w-[350px] lg:w-[400px] flex-none snap-center group relative flex flex-col cursor-pointer"
+      onMouseEnter={iniciarHover}
+      onMouseLeave={detenerHover}
+    >
+      <button
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); manejarFavoritoDefault(prod); }}
+        className="absolute top-4 right-4 z-20 p-2 md:p-3 bg-white/80 backdrop-blur-md rounded-full border border-gray-100 shadow-sm hover:scale-110 transition-all"
+      >
+        <motion.div key={esFavorito ? "full" : "empty"} animate={{ scale: esFavorito ? [1, 1.3, 1] : 1 }}>
+          <Heart size={18} className={esFavorito ? "text-red-500 fill-red-500" : "text-gray-400"} />
+        </motion.div>
+      </button>
+
+      <div className="aspect-[4/5] bg-[#f8f8f8] mb-4 md:mb-6 relative overflow-hidden rounded-2xl md:rounded-3xl">
+
+        {/* CONTENEDOR DE LA GALERÍA: Oculto en PC, Swipe en Móvil */}
+        <div className="w-full h-full flex overflow-x-auto md:overflow-hidden snap-x snap-mandatory no-scrollbar">
+          {prod.galeria.map((imgUrl: string, i: number) => (
+            <Link
+              key={i}
+              href={`/products/${prod.handle}`}
+              className="w-full h-full flex-none snap-center relative"
+              style={{
+                transform: `translateX(-${indiceActivo * 100}%)`,
+                transition: 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1)'
+              }}
+            >
+              <img src={imgUrl} alt={`${prod.name} - Vista ${i}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+            </Link>
+          ))}
+        </div>
+
+        <div className="absolute bottom-0 w-full p-4 translate-y-0 md:translate-y-full md:group-hover:translate-y-0 transition-transform duration-300 pointer-events-none md:pointer-events-auto">
+          <Link href={`/products/${prod.handle}`} className="pointer-events-auto">
+            <div className="w-full bg-black text-white text-[10px] md:text-xs font-bold px-6 py-5 md:py-6 uppercase tracking-widest shadow-lg flex justify-center items-center rounded-xl md:rounded-2xl">
+              Selecciona tu talla
+            </div>
+          </Link>
+        </div>
+      </div>
+
+      <Link href={`/products/${prod.handle}`}>
+        <h4 className="font-bold text-xs md:text-sm uppercase tracking-widest truncate hover:text-gray-500 transition-colors">{prod.name}</h4>
+        <p className="text-gray-400 text-xs md:text-sm mt-1">{prod.price}</p>
+      </Link>
+    </div>
+  );
+}
+// =====================================================================
+
 export default function InicioOMERTA() {
   const router = useRouter();
   const { carrito = [], favoritos = [], toggleFavorito } = useCartStore();
@@ -48,7 +123,6 @@ export default function InicioOMERTA() {
   const [productosShopify, setProductosShopify] = useState<any[]>([]);
   const [cargandoShopify, setCargandoShopify] = useState(true);
 
-  // --- ESTADOS PARA EL BUSCADOR EN VIVO ---
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
   const [mostrandoResultados, setMostrandoResultados] = useState(false);
 
@@ -57,8 +131,9 @@ export default function InicioOMERTA() {
       try {
         const data = await getProducts();
         const formateados = data.map((item: any) => {
-          // --- FIX: EXTRAEMOS LA VARIANTE POR DEFECTO PARA EL CLOSET ---
           const primeraVariante = item.node.variants?.edges?.[0]?.node;
+          // Extraemos TODAS las fotos del producto para mandarlas a la tarjeta interactiva
+          const galeriaCompleta = item.node.images.edges.map((e: any) => e.node.url);
 
           return {
             id: item.node.id,
@@ -69,6 +144,7 @@ export default function InicioOMERTA() {
             price: `$${parseFloat(item.node.priceRange.minVariantPrice.amount).toLocaleString()} MXN`,
             rawPrice: parseFloat(item.node.priceRange.minVariantPrice.amount),
             img: primeraVariante?.image?.url || item.node.images.edges?.[0]?.node?.url || '',
+            galeria: galeriaCompleta.length > 0 ? galeriaCompleta : [primeraVariante?.image?.url || ''], // Mandamos la galería
             tags: item.node.tags || [],
             tituloVariante: item.node.variants?.edges?.[0]?.node?.title || "Unitalla",
             imagenVariante: item.node.variants?.edges?.[0]?.node?.image?.url || null
@@ -84,22 +160,18 @@ export default function InicioOMERTA() {
     extraerArsenal();
   }, []);
 
-  // --- LÓGICA DE ENVÍO GRATIS ---
   const totalDineroCarrito = carrito?.reduce((total, item) => total + ((item.rawPrice || 0) * (item.cantidad || 1)), 0) || 0;
   const META_ENVIO_GRATIS = 1050;
   const faltaParaEnvio = META_ENVIO_GRATIS - totalDineroCarrito;
 
-  // --- CONTADORES NAVBAR ---
   const cantidadTotalCarrito = carrito?.reduce((total, item) => total + (item.cantidad || 1), 0) || 0;
   const cantidadTotalCloset = favoritos?.length || 0;
 
-  // --- FILTRADO POR GÉNERO ---
   const productosFiltrados = productosShopify.filter((prod) => {
     const prefijo = genero === 'MEN' ? 'men-' : 'woman-';
     return prod.tags.some((tag: string) => tag.toLowerCase().startsWith(prefijo));
   });
 
-  // --- LÓGICA DEL BUSCADOR ---
   const resultadosBusqueda = terminoBusqueda.trim() === ''
     ? []
     : productosShopify.filter(p => p.name.toLowerCase().includes(terminoBusqueda.toLowerCase()));
@@ -111,22 +183,19 @@ export default function InicioOMERTA() {
     }
   };
 
-  // --- FIX: MANEJAR FAVORITO CON VARIANTE DEFAULT (CORREGIDO PARA EL CLOSET) ---
   const manejarFavoritoDefault = (prod: any) => {
-    // 1. Traducimos "Negro / M" a "Negro - M" para que el Clóset no se confunda
     let varianteFormateada = prod.tituloVariante.replace(/\s*\/\s*/g, ' - ');
     if (varianteFormateada.toLowerCase() === 'default title') {
       varianteFormateada = 'Unitalla';
     }
 
-    // 2. Construimos la prenda perfecta para el Clóset
     const prendaParaCloset = {
       id: prod.id,
       shopifyId: prod.shopifyId,
-      name: `${prod.name} (${varianteFormateada})`, // Ej: Soft Silence (Negro - M)
+      name: `${prod.name} (${varianteFormateada})`,
       price: prod.price,
       rawPrice: prod.rawPrice,
-      img: prod.imagenVariante || prod.img // Aseguramos usar la foto de ese color exacto
+      img: prod.imagenVariante || prod.img
     };
 
     toggleFavorito(prendaParaCloset);
@@ -158,6 +227,9 @@ export default function InicioOMERTA() {
   };
 
   const actual = config[genero];
+  const categoriasMostrar = genero === 'MEN'
+    ? ["Playeras", "Oversize", "Hoodies"]
+    : ["Baby Tees", "Oversize", "Hoodies"];
 
   return (
     <motion.div
@@ -165,7 +237,6 @@ export default function InicioOMERTA() {
       animate={{ backgroundColor: actual.bgColor, color: actual.textColor }}
     >
 
-      {/* --- HEADER FIJO --- */}
       <div className="sticky top-0 z-50 w-full flex flex-col">
         <header className="bg-white/80 backdrop-blur-md text-black px-4 py-4 border-b border-gray-100 relative">
           <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-y-4 gap-x-3">
@@ -255,7 +326,6 @@ export default function InicioOMERTA() {
         </div>
       </div>
 
-      {/* --- NAVEGACIÓN --- */}
       <nav className="w-full pt-10 flex flex-col items-center gap-8 relative z-10">
         <div className="bg-white/30 backdrop-blur-sm p-1 rounded-full flex border border-gray-300 shadow-inner">
           <button onClick={() => setGenero('MEN')} className={`px-12 py-3 rounded-full text-xs font-bold tracking-widest transition-all ${genero === 'MEN' ? 'bg-black text-white shadow-lg' : 'text-gray-400'}`}>OMERTA MEN</button>
@@ -270,7 +340,6 @@ export default function InicioOMERTA() {
         </div>
       </nav>
 
-      {/* --- HERO --- */}
       <main className="max-w-7xl mx-auto px-4 py-12 flex flex-col md:flex-row items-center justify-between min-h-[55vh] gap-8 relative z-10">
         <div className="w-full md:w-1/2 text-center md:text-left h-40 flex items-center">
           <h2 className="text-3xl md:text-6xl font-black tracking-tighter leading-[1.1] uppercase">
@@ -289,7 +358,6 @@ export default function InicioOMERTA() {
         </div>
       </main>
 
-      {/* --- LOOKBOOK --- */}
       <section className="w-full bg-black/5 py-24 relative z-10">
         <div className="max-w-[1400px] mx-auto px-4 md:px-8">
           <h3 className="text-2xl md:text-4xl font-black uppercase tracking-tighter mb-12">OMERTA {genero}</h3>
@@ -307,7 +375,6 @@ export default function InicioOMERTA() {
         </div>
       </section>
 
-      {/* --- PROTOCOLO --- */}
       <section className="w-full bg-black text-white py-32 px-4 relative z-10">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
           <div>
@@ -320,45 +387,42 @@ export default function InicioOMERTA() {
         </div>
       </section>
 
-      {/* --- LANZAMIENTOS CON FIX FAVORITO --- */}
+      {/* ========================================================= */}
+      {/* SECCIONES DIVIDIDAS CON TARJETAS INTERACTIVAS */}
+      {/* ========================================================= */}
       <section className="w-full py-24 pl-4 md:pl-12 bg-white overflow-hidden relative z-10">
-        <h3 className="text-2xl font-black tracking-tighter uppercase mb-12">
-          {cargandoShopify ? "SINCRONIZANDO ARSENAL..." : `Últimos Lanzamientos ${genero}`}
+        <h3 className="text-3xl md:text-5xl font-black tracking-tighter uppercase mb-16 italic text-gray-200">
+          {cargandoShopify ? "SINCRONIZANDO ARSENAL..." : `ESTILOS ${genero}`}
         </h3>
-        <div className="flex overflow-x-auto gap-6 md:gap-10 pb-8 no-scrollbar snap-x">
-          {productosFiltrados.map((prod) => {
-            const esFavorito = (favoritos || []).some((f: any) => f.shopifyId === prod.shopifyId);
-            return (
-              <div key={prod.id} className="w-[220px] md:w-[350px] lg:w-[400px] flex-none snap-center group relative flex flex-col cursor-pointer">
-                <button
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); manejarFavoritoDefault(prod); }}
-                  className="absolute top-4 right-4 z-20 p-2 md:p-3 bg-white/80 backdrop-blur-md rounded-full border border-gray-100 shadow-sm hover:scale-110 transition-all"
-                >
-                  <motion.div key={esFavorito ? "full" : "empty"} animate={{ scale: esFavorito ? [1, 1.3, 1] : 1 }}>
-                    <Heart size={18} className={esFavorito ? "text-red-500 fill-red-500" : "text-gray-400"} />
-                  </motion.div>
-                </button>
 
-                <div className="aspect-[4/5] bg-[#f8f8f8] mb-4 md:mb-6 relative overflow-hidden rounded-2xl md:rounded-3xl">
-                  <Link href={`/products/${prod.handle}`} className="block w-full h-full">
-                    <img src={prod.img} alt={prod.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                  </Link>
-                  <div className="absolute bottom-0 w-full p-4 translate-y-0 md:translate-y-full md:group-hover:translate-y-0 transition-transform duration-300">
-                    <Link href={`/products/${prod.handle}`} className="w-full bg-black text-white text-[10px] md:text-xs font-bold px-6 py-5 md:py-6 uppercase tracking-widest shadow-lg flex justify-center items-center rounded-xl md:rounded-2xl">Selecciona tu talla</Link>
-                  </div>
-                </div>
+        {!cargandoShopify && categoriasMostrar.map(cat => {
+          const categoriaSlug = crearSlug(cat);
+          const productosDeEstaCategoria = productosFiltrados.filter(p =>
+            p.tags.some((tag: string) => tag.toLowerCase().includes(categoriaSlug))
+          );
 
-                <Link href={`/products/${prod.handle}`}>
-                  <h4 className="font-bold text-xs md:text-sm uppercase tracking-widest truncate hover:text-gray-500 transition-colors">{prod.name}</h4>
-                  <p className="text-gray-400 text-xs md:text-sm mt-1">{prod.price}</p>
-                </Link>
+          if (productosDeEstaCategoria.length === 0) return null;
+
+          return (
+            <div key={cat} className="mb-20">
+              <h4 className="text-xl md:text-2xl font-black uppercase tracking-[0.2em] text-black border-l-4 border-black pl-4 mb-8">
+                NUEVAS {cat}
+              </h4>
+              <div className="flex overflow-x-auto gap-6 md:gap-10 pb-8 no-scrollbar snap-x">
+                {productosDeEstaCategoria.map((prod) => (
+                  <TarjetaProductoInteractiva
+                    key={prod.id}
+                    prod={prod}
+                    favoritos={favoritos}
+                    manejarFavoritoDefault={manejarFavoritoDefault}
+                  />
+                ))}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
       </section>
 
-      {/* --- FOOTER CATEGORÍAS --- */}
       <section className="bg-[#f9f9f9] py-24 px-6 border-t border-gray-200 relative z-10">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-16">
           <div>

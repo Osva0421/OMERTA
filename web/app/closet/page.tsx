@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Trash2, ArrowRight, Box, LayoutGrid, ShoppingBag, Heart } from 'lucide-react';
+import { ChevronLeft, Trash2, ArrowRight, Box, LayoutGrid, ShoppingBag, Heart, Home } from 'lucide-react';
 import Link from 'next/link';
 import { useCartStore } from '../store/useCartStore';
 import { getProduct, getProducts } from '../lib/shopify';
@@ -80,16 +80,14 @@ export default function ClosetPage() {
                     const fullProduct = await getProduct(match.node.handle);
                     if (fullProduct) {
                         const fotosColor = fullProduct.images.edges.filter((img: any) => {
-                            if (!img.node.altText) return false; // Si Shopify no tiene Alt Text, la ignoramos
+                            if (!img.node.altText) return false;
                             const alt = img.node.altText.toLowerCase();
                             return alt.includes(colorPalabra);
                         });
 
-                        // REGLA ESTRICTA ANTI-SATURACIÓN:
                         if (fotosColor.length > 0) {
-                            setGaleriaFiltrada(fotosColor); // Mostramos la galería solo si encontró el color
+                            setGaleriaFiltrada(fotosColor);
                         } else {
-                            // Si falla, SOLO mostramos la foto principal. Cero saturación de colores mezclados.
                             setGaleriaFiltrada([{ node: { url: itemSeleccionado.img } }]);
                         }
                     }
@@ -105,9 +103,19 @@ export default function ClosetPage() {
     const infoActual = itemSeleccionado ? extraerDatosVariante(itemSeleccionado.name) : { titulo: '', variante: '' };
 
     return (
-        <div className="min-h-screen bg-white text-black font-sans flex flex-col overflow-hidden">
+        <div className="min-h-screen bg-white text-black font-sans flex flex-col overflow-hidden relative">
+
+            {/* BOTÓN FLOTANTE REGRESAR AL INICIO (Visible en Móvil) */}
+            <Link
+                href="/"
+                className="fixed bottom-24 right-4 z-50 md:hidden bg-black text-white p-4 rounded-full shadow-2xl flex items-center justify-center active:scale-95 transition-transform"
+                style={{ boxShadow: '0 10px 25px rgba(0,0,0,0.3)' }}
+            >
+                <Home size={24} />
+            </Link>
+
             <nav className="p-4 md:p-6 flex justify-between items-center border-b border-gray-100 bg-white/80 backdrop-blur-md z-50 sticky top-0">
-                <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"><ChevronLeft size={14} /> Base</Link>
+                <Link href="/" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"><ChevronLeft size={14} /> REGRESAR</Link>
                 <Link href="/"><img src="/monograma-omerta.png" alt="OMERTA" className="h-8 md:h-10" /></Link>
                 <div className="flex items-center space-x-4 bg-black text-white px-5 py-2 rounded-full shadow-xl">
                     <div className="flex items-center gap-2"><LayoutGrid size={16} className="text-red-500 fill-red-500" /> <span className="text-[10px] font-black">{favoritos.length}</span></div>
@@ -116,11 +124,11 @@ export default function ClosetPage() {
                 </div>
             </nav>
 
-            <main className="flex-1 flex flex-col-reverse lg:flex-row overflow-hidden">
+            <main className="flex-1 flex flex-col-reverse lg:flex-row overflow-hidden pb-8 lg:pb-0">
                 {/* TEXTOS */}
                 <section className="w-full lg:w-1/3 p-8 lg:p-16 flex flex-col justify-center border-r border-gray-100 bg-white z-10">
                     <AnimatePresence mode="wait">
-                        {itemSeleccionado && (
+                        {itemSeleccionado ? (
                             <motion.div key={itemSeleccionado.shopifyId} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}>
                                 <h1 className="text-4xl lg:text-6xl font-black uppercase italic mb-4 leading-none">{infoActual.titulo}</h1>
                                 <div className="flex items-center gap-3 mb-8">
@@ -132,16 +140,21 @@ export default function ClosetPage() {
                                     <ShoppingBag size={18} /> Mover al Carrito <ArrowRight size={16} />
                                 </button>
                             </motion.div>
+                        ) : (
+                            <div className="text-center h-full flex flex-col items-center justify-center">
+                                <Box size={48} strokeWidth={1} className="text-gray-200 mx-auto mb-4" />
+                                <p className="text-[10px] font-mono text-gray-400 uppercase italic">El archivo está vacío</p>
+                            </div>
                         )}
                     </AnimatePresence>
                 </section>
 
                 {/* --- VISUALIZADOR CENTRAL CON GALERÍA DERECHA --- */}
-                <section className="flex-1 bg-[#fafafa] flex items-center justify-center p-6 lg:p-12 relative">
+                <section className="flex-1 bg-[#fafafa] flex items-center justify-center p-6 lg:p-12 relative min-h-[50vh] lg:min-h-0">
                     <div className="flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-12 w-full max-w-6xl h-full">
 
-                        {/* FOTO PRINCIPAL (TAMAÑO PC AJUSTADO) */}
-                        <div className="relative flex-1 flex items-center justify-center">
+                        {/* FOTO PRINCIPAL */}
+                        <div className="relative flex-1 flex items-center justify-center w-full">
                             <AnimatePresence mode="wait">
                                 {imagenActiva && (
                                     <motion.img
@@ -149,31 +162,33 @@ export default function ClosetPage() {
                                         src={imagenActiva}
                                         initial={{ opacity: 0, scale: 0.95 }}
                                         animate={{ opacity: 1, scale: 1 }}
-                                        className="max-h-[45vh] lg:max-h-[65vh] w-auto object-contain drop-shadow-2xl z-10"
+                                        className="max-h-[40vh] lg:max-h-[65vh] w-auto object-contain drop-shadow-2xl z-10"
                                     />
                                 )}
                             </AnimatePresence>
-                            <div className="absolute inset-0 flex items-center justify-center text-[12vw] font-black text-black/[0.02] uppercase italic pointer-events-none">OMERTA</div>
+                            {imagenActiva && <div className="absolute inset-0 flex items-center justify-center text-[12vw] font-black text-black/[0.02] uppercase italic pointer-events-none">OMERTA</div>}
                         </div>
 
-                        {/* GALERÍA MINIATURAS (DERECHA) */}
-                        <div className="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto no-scrollbar pb-2 lg:pb-0 z-20 lg:w-24">
-                            {galeriaFiltrada.map((img, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => setImagenActiva(img.node.url)}
-                                    className={`w-16 lg:w-full aspect-[4/5] rounded-xl overflow-hidden border-2 transition-all flex-none bg-white ${imagenActiva === img.node.url ? 'border-black scale-105 shadow-lg' : 'border-transparent opacity-40 hover:opacity-100'}`}
-                                >
-                                    <img src={img.node.url} className="w-full h-full object-cover" />
-                                </button>
-                            ))}
-                        </div>
+                        {/* GALERÍA MINIATURAS (DERECHA EN PC, ABAJO EN MÓVIL) */}
+                        {galeriaFiltrada.length > 1 && (
+                            <div className="flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto no-scrollbar pb-2 lg:pb-0 z-20 w-full lg:w-24 justify-center lg:justify-start">
+                                {galeriaFiltrada.map((img, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => setImagenActiva(img.node.url)}
+                                        className={`w-16 lg:w-full aspect-[4/5] rounded-xl overflow-hidden border-2 transition-all flex-none bg-white ${imagenActiva === img.node.url ? 'border-black scale-105 shadow-lg' : 'border-transparent opacity-40 hover:opacity-100'}`}
+                                    >
+                                        <img src={img.node.url} className="w-full h-full object-cover" />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </section>
             </main>
 
-            {/* RACK INFERIOR CON BASURA */}
-            <section className="bg-white border-t border-gray-100 p-6 z-30 shadow-2xl flex-shrink-0">
+            {/* RACK INFERIOR CON BASURA FIJA EN MÓVILES */}
+            <section className="bg-white border-t border-gray-100 p-6 z-30 shadow-2xl flex-shrink-0 relative">
                 <div className="max-w-7xl mx-auto">
                     <div className="flex justify-between items-center mb-6 px-2">
                         <div className="flex items-center gap-2 font-black uppercase italic"><Heart size={18} fill="black" /> BAJO VIGILANCIA</div>
@@ -194,12 +209,12 @@ export default function ClosetPage() {
                                     <img src={item.img} className="w-full h-full object-contain" />
                                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-gray-300 rounded-b-full" />
 
-                                    {/* ICONO BASURA */}
+                                    {/* ICONO BASURA (SIEMPRE VISIBLE EN MÓVIL, HOVER EN PC) */}
                                     <button
                                         onClick={(e) => { e.stopPropagation(); toggleFavorito(item); }}
-                                        className="absolute top-2 right-2 p-2 bg-white/90 rounded-full text-red-500 shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:scale-110 active:scale-95 z-20"
+                                        className="absolute top-2 right-2 p-2 bg-white/90 md:bg-white/90 rounded-full text-red-500 shadow-md md:opacity-0 md:group-hover:opacity-100 opacity-100 transition-opacity hover:scale-110 active:scale-95 z-20"
                                     >
-                                        <Trash2 size={14} />
+                                        <Trash2 size={16} />
                                     </button>
                                 </div>
                                 <div className="p-3 text-center">
