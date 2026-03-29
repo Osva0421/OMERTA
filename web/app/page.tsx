@@ -59,7 +59,7 @@ function StarProductCard({ prod, number, title, description, reverse, imagenManu
         <p className="text-gray-500 text-sm md:text-base leading-relaxed mb-10 font-sans">{description}</p>
 
         <div className="flex flex-wrap gap-4 font-sans">
-          <button onClick={manejarAñadirAlCarrito} className="bg-[#111] text-white px-8 py-4 rounded-md font-bold text-xs uppercase tracking-widest hover:bg-black/80 transition-colors">Añadir a Bolsa</button>
+          <button onClick={manejarAñadirAlCarrito} className="bg-[#111] text-white px-8 py-4 rounded-md font-bold text-xs uppercase tracking-widest hover:bg-black/80 transition-colors">Añadir al Carrito</button>
           <Link href={`/products/${prod.handle}`} className="bg-white text-black border border-gray-200 px-8 py-4 rounded-md font-bold text-xs uppercase tracking-widest hover:bg-gray-50 transition-colors flex items-center gap-2">Seleccionar Talla <ArrowRight size={14} /></Link>
         </div>
       </div>
@@ -149,6 +149,26 @@ export default function InicioOMERTA() {
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
   const [mostrandoResultados, setMostrandoResultados] = useState(false);
 
+  // --- Recuperar el último género seleccionado al cargar la página ---
+  useEffect(() => {
+    const ultimoGenero = sessionStorage.getItem('omerta-ultimo-genero') as 'MEN' | 'WOMAN';
+    if (ultimoGenero) {
+      setGenero(ultimoGenero);
+      // Si había un género guardado, hacemos un pequeño scroll automático a la sección
+      // para que el usuario no aparezca hasta arriba.
+      setTimeout(() => {
+        document.getElementById('archivo-lanzamientos')?.scrollIntoView({ behavior: 'auto' });
+      }, 100);
+    }
+  }, []);
+
+  // Función modificada para guardar la selección
+  const cambiarGeneroManual = (nuevoGenero: 'MEN' | 'WOMAN') => {
+    setGenero(nuevoGenero);
+    sessionStorage.setItem('omerta-ultimo-genero', nuevoGenero);
+    document.getElementById('archivo-lanzamientos')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   // --- Lógica del Cursor Personalizado ---
   useEffect(() => {
     const cur = document.getElementById('cur');
@@ -210,12 +230,10 @@ export default function InicioOMERTA() {
     return prod.tags.some((tag: string) => tag.toLowerCase().startsWith(prefijo));
   });
 
-  // --- OBTENEMOS LOS PRODUCTOS ESTRELLA MEN ---
+  // --- PRODUCTOS ESTRELLA ---
   const productoEstrellaMen1 = productosFiltrados.find(p => p.tags.some((t: string) => t.toLowerCase().includes('estrella-1'))) || productosFiltrados[0];
   const productoEstrellaMen2 = productosFiltrados.find(p => p.tags.some((t: string) => t.toLowerCase().includes('estrella-2'))) || productosFiltrados[1];
   const productoEstrellaMen3 = productosFiltrados.find(p => p.tags.some((t: string) => t.toLowerCase().includes('estrella-3'))) || productosFiltrados[2];
-
-  // --- OBTENEMOS LOS PRODUCTOS ESTRELLA WOMAN ---
   const productoEstrellaWoman1 = productosShopify.find(p => p.tags.some((t: string) => t.toLowerCase().trim() === 'woman-1')) || productosFiltrados[0];
   const productoEstrellaWoman2 = productosShopify.find(p => p.tags.some((t: string) => t.toLowerCase().trim() === 'woman-2')) || (productosFiltrados.length > 1 ? productosFiltrados[1] : productosFiltrados[0]);
 
@@ -250,13 +268,11 @@ export default function InicioOMERTA() {
 
   const config = {
     MEN: { bgColor: '#ffffff', textColor: '#111111', subCategorias: ["Playeras", "Oversize", "Hoodies", "Pantalones", "Accesorios"] },
-    WOMAN: { bgColor: '#ffffff', textColor: '#111111', subCategorias: ["Baby Tees", "Oversize", "Hoodies", "Leggings", "Accesorios"] }
+    WOMAN: { bgColor: '#ffffff', textColor: '#111111', subCategorias: ["Baby Tees", "Oversize", "Hoodies", "Blusas", "Accesorios"] }
   };
 
   const actual = config[genero];
-  const categoriasMostrar = genero === 'MEN' ? ["Playeras", "Oversize", "Hoodies"] : ["Baby Tees", "Oversize", "Hoodies"];
-
-  const scrollToContent = () => { document.getElementById('archivo-lanzamientos')?.scrollIntoView({ behavior: 'smooth' }); };
+  const categoriasMostrar = genero === 'MEN' ? ["Playeras", "Oversize", "Hoodies"] : ["Blusas", "Baby Tees", "Oversize"];
 
   return (
     <motion.div
@@ -310,7 +326,7 @@ export default function InicioOMERTA() {
         }
       `}} />
 
-      {/* --- HEADER CON Z-INDEX ALTO --- */}
+      {/* --- HEADER CON Z-INDEX APLICADO --- */}
       <header className="bg-white/80 backdrop-blur-md text-black px-4 py-4 border-b border-gray-100 relative z-[999]">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-y-4 gap-x-3">
           <Link href="/" className="flex-shrink-0">
@@ -324,28 +340,40 @@ export default function InicioOMERTA() {
               <input
                 type="text"
                 value={terminoBusqueda}
-                onChange={(e) => setTerminoBusqueda(e.target.value)}
+                onChange={(e) => {
+                  setTerminoBusqueda(e.target.value);
+                  setMostrandoResultados(true);
+                }}
+                onFocus={() => setMostrandoResultados(true)}
                 placeholder="Buscar en el archivo..."
                 className="w-full bg-transparent outline-none text-xs font-bold"
               />
               {/* BOTÓN X PARA CERRAR Y BORRAR BÚSQUEDA */}
               {terminoBusqueda.length > 0 && (
-                <button type="button" onClick={() => setTerminoBusqueda('')} className="text-gray-300 hover:text-black text-xs font-black ml-2 px-2 transition-colors">
+                <button type="button" onClick={() => { setTerminoBusqueda(''); setMostrandoResultados(false); }} className="text-gray-300 hover:text-black text-xs font-black ml-2 px-2 transition-colors">
                   X
                 </button>
               )}
             </form>
 
             <AnimatePresence>
-              {terminoBusqueda.length > 0 && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute top-full left-0 right-0 mt-3 bg-white border border-gray-100 rounded-3xl shadow-2xl overflow-hidden z-[999] max-h-[60vh] overflow-y-auto">
+              {mostrandoResultados && terminoBusqueda.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className="absolute top-full left-0 right-0 mt-3 bg-white border border-gray-100 rounded-3xl shadow-2xl overflow-hidden z-[999] max-h-[60vh] overflow-y-auto"
+                >
                   {resultadosBusqueda.length > 0 ? (
                     <div className="p-2">
                       {resultadosBusqueda.map(prod => (
                         <Link
                           key={prod.handle}
                           href={`/products/${prod.handle}`}
-                          onClick={() => setTerminoBusqueda('')} // Al dar clic, se limpia y se cierra el cuadro
+                          onClick={() => {
+                            setTerminoBusqueda('');
+                            setMostrandoResultados(false);
+                          }}
                           className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-2xl transition-colors group"
                         >
                           <div className="w-14 h-16 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
@@ -376,7 +404,7 @@ export default function InicioOMERTA() {
             <Link href="/login" className="flex items-center gap-2"><User size={16} /><span className="hidden lg:inline">{isLoggedIn ? userName : 'Entrar'}</span></Link>
             <div className="w-[1px] h-4 bg-zinc-700 hidden lg:block"></div>
             <Link href="/carrito" className="flex items-center gap-2 relative">
-              <ShoppingBag size={16} /> <span className="hidden lg:inline">Bolsa</span>
+              <ShoppingBag size={16} /> <span className="hidden lg:inline">Carrito</span>
               {cantidadTotalCarrito > 0 && <span className="absolute -top-2 -right-3 bg-white text-black text-[9px] w-4 h-4 rounded-full flex items-center justify-center border border-black">{cantidadTotalCarrito}</span>}
             </Link>
           </div>
@@ -385,7 +413,8 @@ export default function InicioOMERTA() {
 
       {/* --- HERO DIVIDIDO INICIAL --- */}
       <div className="hero-wrap" id="omerta-split-hero">
-        <div className="hero-side side-w" onClick={() => { setGenero('WOMAN'); scrollToContent(); }}>
+        {/* Llama a cambiarGeneroManual en vez de setGenero directo */}
+        <div className="hero-side side-w" onClick={() => cambiarGeneroManual('WOMAN')}>
           <div className="bg-wrap">
             <img src="/omerta-woman.png" alt="Omerta Woman" />
           </div>
@@ -398,7 +427,8 @@ export default function InicioOMERTA() {
 
         <div className="hero-divider"></div>
 
-        <div className="hero-side side-m" onClick={() => { setGenero('MEN'); scrollToContent(); }}>
+        {/* Llama a cambiarGeneroManual en vez de setGenero directo */}
+        <div className="hero-side side-m" onClick={() => cambiarGeneroManual('MEN')}>
           <div className="bg-wrap">
             <img src="/omerta-men.png" alt="Omerta Men" />
           </div>
@@ -410,8 +440,8 @@ export default function InicioOMERTA() {
         </div>
       </div>
 
-      {/* --- NAVEGACIÓN --- */}
-      <nav id="archivo-lanzamientos" className="w-full pt-10 pb-8 flex flex-col items-center gap-8 border-b border-gray-100">
+      {/* --- NAVEGACIÓN FIJA (STICKY) --- */}
+      <nav id="archivo-lanzamientos" className="w-full pt-10 pb-8 flex flex-col items-center gap-8 border-b border-gray-100 sticky top-0 z-[80] bg-white/90 backdrop-blur-md transition-all">
         <div className="flex overflow-x-auto justify-center gap-10 no-scrollbar px-4 w-full">
           {actual.subCategorias.map((sub) => (
             <Link key={sub + genero} href={`/categoria/${crearSlug(genero + '-' + sub)}`} className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-gray-400 hover:text-black transition-colors whitespace-nowrap">{sub}</Link>
@@ -461,13 +491,12 @@ export default function InicioOMERTA() {
       )}
 
       {/* ========================================================= */}
-      {/* SECCIÓN WOMAN (MINIMALISTA CON CLICK Y CARRITO ACTIVO Y TAGS SEPARADOS) */}
+      {/* SECCIÓN WOMAN (INTACTA) */}
       {/* ========================================================= */}
       {genero === 'WOMAN' && !cargandoShopify && (
         <>
-          {/* HÉROE MINIMALISTA (ESTILO 50/50 DE image_a95243.jpg) */}
+          {/* HÉROE MINIMALISTA */}
           <section className="w-full flex flex-col md:flex-row min-h-[85vh] bg-white relative z-10 font-sans border-b border-gray-100">
-            {/* Lado Texto */}
             <div className="w-full md:w-1/2 flex flex-col justify-center px-8 md:px-20 lg:px-32 py-20 md:py-0">
               <span className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-6">Para ti</span>
               <h2 className="text-6xl md:text-8xl font-bold text-black leading-[0.9] tracking-tighter mb-8">
@@ -491,7 +520,6 @@ export default function InicioOMERTA() {
                 </Link>
               </div>
             </div>
-            {/* Lado Imagen - Clickable */}
             <Link href={`/products/${productoEstrellaWoman1?.handle}`} className="w-full md:w-1/2 h-[50vh] md:h-auto bg-[#e5e9ea] block relative group cursor-pointer">
               <img src="/elegancia-1.png" alt="Woman Elegancia Atemporal" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
               <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -500,11 +528,9 @@ export default function InicioOMERTA() {
             </Link>
           </section>
 
-          {/* SECCIÓN DE DETALLE ENUMERADA (Crop Top OMERTA - image_b83cfa.jpg) */}
+          {/* SECCIÓN DE DETALLE ENUMERADA */}
           <section className="w-full py-20 md:py-32 relative z-10 bg-white font-sans border-b border-gray-100">
             <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-16 md:gap-24 px-6">
-
-              {/* Imagen de detalle minimalista - Clickable */}
               <Link href={`/products/${productoEstrellaWoman2?.handle}`} className="w-full md:w-1/2 aspect-square md:aspect-[4/5] bg-gray-100 overflow-hidden relative group cursor-pointer block">
                 <img src="/elegancia-2.png" alt="Woman Detail Minimal" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                 <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -587,7 +613,7 @@ export default function InicioOMERTA() {
         })}
       </section>
 
-      {/* --- PIE DE PÁGINA (ADAPTADO CON REDES) --- */}
+      {/* --- PIE DE PÁGINA (INTACTO) --- */}
       <footer className="bg-white border-t border-gray-200 py-20 relative z-10 font-sans">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
           <div className="md:col-span-1">
