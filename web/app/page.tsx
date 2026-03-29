@@ -7,7 +7,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from './store/useCartStore';
 import { getProducts } from './lib/shopify';
-
 const crearSlug = (texto: string) => {
   return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-');
 };
@@ -359,7 +358,7 @@ export default function InicioOMERTA() {
               <Link href="/login" className="flex items-center gap-2"><User size={16} /><span className="hidden lg:inline">{isLoggedIn ? userName : 'Entrar'}</span></Link>
               <div className="w-[1px] h-4 bg-zinc-700 hidden lg:block"></div>
               <Link href="/carrito" className="flex items-center gap-2 relative">
-                <ShoppingBag size={16} /> <span className="hidden lg:inline">Carrito</span>
+                <ShoppingBag size={16} /> <span className="hidden lg:inline">Bolsa</span>
                 {cantidadTotalCarrito > 0 && <span className="absolute -top-2 -right-3 bg-white text-black text-[9px] w-4 h-4 rounded-full flex items-center justify-center border border-black">{cantidadTotalCarrito}</span>}
               </Link>
             </div>
@@ -448,22 +447,22 @@ export default function InicioOMERTA() {
       )}
 
       {/* ========================================================= */}
-      {/* SECCIÓN WOMAN (MINIMALISTA CON CLICK Y CARRITO ACTIVO Y TAGS SEPARADOS) */}
+      {/* SECCIÓN WOMAN (DISEÑO SANS-SERIF COMPLETAMENTE) */}
       {/* ========================================================= */}
       {genero === 'WOMAN' && !cargandoShopify && (
         <>
-          {/* HÉROE MINIMALISTA (ESTILO 50/50 DE image_a95243.jpg) */}
+          {/* HÉROE MINIMALISTA */}
           <section className="w-full flex flex-col md:flex-row min-h-[85vh] bg-white relative z-10 font-sans border-b border-gray-100">
             {/* Lado Texto */}
             <div className="w-full md:w-1/2 flex flex-col justify-center px-8 md:px-20 lg:px-32 py-20 md:py-0">
-              <span className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-6">Para ti</span>
-              <h2 className="text-6xl md:text-8xl font-bold text-black leading-[0.9] tracking-tighter mb-8">
+              <span className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-6">Nueva Temporada</span>
+              <h2 className="text-6xl md:text-8xl font-bold text-black leading-[0.9] tracking-tighter mb-8 font-sans">
                 {productoEstrellaWoman1?.name || 'Boxy Cerezo'}
               </h2>
-              <p className="text-gray-600 text-sm md:text-base leading-relaxed mb-10 max-w-md">
+              <p className="text-gray-600 text-sm md:text-base leading-relaxed mb-10 max-w-md font-sans">
                 Descubre nuestra colección diseñada para la mujer moderna que valora la simplicidad y la calidad.
               </p>
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-wrap gap-4 font-sans">
                 <button
                   onClick={(e) => añadirCarritoWoman(e, productoEstrellaWoman1)}
                   className="bg-black text-white px-8 py-4 text-xs font-bold uppercase tracking-widest hover:bg-black/80 transition-colors rounded-none"
@@ -487,7 +486,7 @@ export default function InicioOMERTA() {
             </Link>
           </section>
 
-          {/* SECCIÓN DE DETALLE ENUMERADA (Crop Top OMERTA - image_b83cfa.jpg) */}
+          {/* SECCIÓN DE DETALLE ENUMERADA */}
           <section className="w-full py-20 md:py-32 relative z-10 bg-white font-sans border-b border-gray-100">
             <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-16 md:gap-24 px-6">
 
@@ -500,19 +499,19 @@ export default function InicioOMERTA() {
               </Link>
 
               <div className="w-full md:w-1/2 flex flex-col justify-center text-left">
-                <h3 className="text-4xl md:text-6xl font-bold text-black leading-tight tracking-tighter mb-8">
+                <h3 className="text-4xl md:text-6xl font-bold text-black leading-tight tracking-tighter mb-8 font-sans">
                   {productoEstrellaWoman2?.name || 'Crop Top OMERTA'}
                 </h3>
-                <p className="text-gray-600 text-sm md:text-base leading-relaxed mb-8 max-w-md">
+                <p className="text-gray-600 text-sm md:text-base leading-relaxed mb-8 max-w-md font-sans">
                   Hecho para brillar con naturalidad
                 </p>
-                <ul className="list-disc pl-5 text-gray-600 text-sm md:text-base space-y-2 mb-10">
+                <ul className="list-disc pl-5 text-gray-600 text-sm md:text-base space-y-2 mb-10 font-sans">
                   <li>Materiales premium sostenibles</li>
                   <li>Diseño atemporal</li>
                   <li>Hecha a tu medida</li>
                 </ul>
 
-                <div className="flex flex-wrap gap-4">
+                <div className="flex flex-wrap gap-4 font-sans">
                   <button
                     onClick={(e) => añadirCarritoWoman(e, productoEstrellaWoman2)}
                     className="inline-flex justify-center items-center bg-black text-white px-10 py-4 font-bold uppercase tracking-widest text-xs hover:bg-black/80 transition-colors rounded-none w-fit"
@@ -532,7 +531,7 @@ export default function InicioOMERTA() {
 
           {/* SECCIÓN: EXPLORA POR CATEGORÍA */}
           <section className="w-full py-20 md:py-32 bg-white z-10 relative font-sans border-b border-gray-100">
-            <div className="max-w-7xl mx-auto px-6 mb-16 text-center">
+            <div className="max-w-7xl mx-auto px-6 mb-16 text-center font-sans">
               <h2 className="text-4xl md:text-5xl font-bold text-black mb-4 tracking-tighter">Explora por Categoría</h2>
               <p className="text-gray-500 text-sm md:text-base">Piezas cuidadosamente seleccionadas para cada ocasión</p>
             </div>
