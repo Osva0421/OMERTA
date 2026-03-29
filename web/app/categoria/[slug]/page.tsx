@@ -39,10 +39,9 @@ export default function CategoriaPage() {
                     if (tagsDelProducto.includes(slugLimpio)) return true;
 
                     // 2. Coincidencia parcial (por si el tag es "woman-playeras-oversize" y el slug "woman-oversize")
-                    // Dividimos el slug en partes: "woman" y "oversize"
                     const partesDelSlug = slugLimpio.split('-');
-                    return tagsDelProducto.some(tag =>
-                        partesDelSlug.every(parte => tag.includes(parte))
+                    return tagsDelProducto.some((tag: string) =>
+                        partesDelSlug.every((parte: string) => tag.includes(parte))
                     );
                 });
 
