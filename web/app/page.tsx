@@ -546,8 +546,8 @@ export default function InicioOMERTA() {
               <WomanCategoryRect title="Playera Oversize" subtitle="Comodidad sin esfuerzo" imgUrl="/oversize-woman.png" link={`/categoria/${crearSlug('woman-playeras-oversize')}`} />
               <WomanCategoryRect title="Hoodies" subtitle="Esenciales urbanos" imgUrl="/hoodie-woman.png" link={`/categoria/${crearSlug('woman-hoodies')}`} />
               <WomanCategoryRect title="Baby Tees" subtitle="Ajuste perfecto" imgUrl="/baby-tees-woman.png" link={`/categoria/${crearSlug('woman-baby-tees')}`} />
-              <WomanCategoryRect title="Accesorios" subtitle="Detalles que marcan la diferencia" imgUrl="/accesorios.png" link={`/categoria/${crearSlug('woman-accesorios')}`} />
-              <WomanCategoryRect title="Ver Todo" subtitle="Explora el archivo completo" imgUrl="/woman-all.jpg" link="/closet" />
+              <WomanCategoryRect title="Tiranres" subtitle="Detalles que marcan la diferencia" imgUrl="/tirantes-woman.png" link={`/categoria/${crearSlug('woman-tirantes')}`} />
+              <WomanCategoryRect title="Accesorios" subtitle="Explora el archivo completo" imgUrl="/accesorios.png" link={`/categoria/${crearSlug('accesorios')}`} />
             </div>
           </section>
         </>
