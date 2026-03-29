@@ -12,9 +12,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: 'OMERTA | Archive Protocol',
+export const metadata = {
+  title: 'OMERTA',
   description: 'Streetwear & Minimalist Fashion Archive',
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
