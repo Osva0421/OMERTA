@@ -154,15 +154,12 @@ export default function InicioOMERTA() {
     const ultimoGenero = sessionStorage.getItem('omerta-ultimo-genero') as 'MEN' | 'WOMAN';
     if (ultimoGenero) {
       setGenero(ultimoGenero);
-      // Si había un género guardado, hacemos un pequeño scroll automático a la sección
-      // para que el usuario no aparezca hasta arriba.
       setTimeout(() => {
         document.getElementById('archivo-lanzamientos')?.scrollIntoView({ behavior: 'auto' });
       }, 100);
     }
   }, []);
 
-  // Función modificada para guardar la selección
   const cambiarGeneroManual = (nuevoGenero: 'MEN' | 'WOMAN') => {
     setGenero(nuevoGenero);
     sessionStorage.setItem('omerta-ultimo-genero', nuevoGenero);
@@ -237,10 +234,8 @@ export default function InicioOMERTA() {
   const productoEstrellaWoman1 = productosShopify.find(p => p.tags.some((t: string) => t.toLowerCase().trim() === 'woman-1')) || productosFiltrados[0];
   const productoEstrellaWoman2 = productosShopify.find(p => p.tags.some((t: string) => t.toLowerCase().trim() === 'woman-2')) || (productosFiltrados.length > 1 ? productosFiltrados[1] : productosFiltrados[0]);
 
-  // LIVE SEARCH EXACTO
   const resultadosBusqueda = terminoBusqueda.trim() === '' ? [] : productosShopify.filter(p => p.name.toLowerCase().includes(terminoBusqueda.toLowerCase()));
 
-  // Evitamos que recargue si alguien por error da "Enter"
   const ejecutarBusqueda = (e: React.FormEvent) => {
     e.preventDefault();
   };
@@ -261,7 +256,6 @@ export default function InicioOMERTA() {
       name: `${prod.name} (${varianteTitle})`, price: prod.price, rawPrice: prod.rawPrice,
       img: prod.imagenVariante || prod.img, variantTitle: varianteTitle, cantidad: 1,
     };
-
     agregarPrenda(prendaParaCarrito);
     alert(`¡${prod.name} añadido a la bolsa!`);
   };
@@ -275,13 +269,19 @@ export default function InicioOMERTA() {
   const categoriasMostrar = genero === 'MEN' ? ["Playeras", "Oversize", "Hoodies"] : ["Blusas", "Baby Tees", "Oversize"];
 
   return (
+    // AQUÍ ESTÁ LA MAGIA 2: El padding top (pt-[72px] md:pt-[80px]) empuja la página hacia abajo para no tapar nada.
     <motion.div
-      className="min-h-screen transition-colors duration-700 ease-in-out selection:bg-black selection:text-white font-sans"
+      className="min-h-screen transition-colors duration-700 ease-in-out selection:bg-black selection:text-white font-sans pt-[72px] md:pt-[80px]"
       animate={{ backgroundColor: actual.bgColor, color: actual.textColor }}
     >
       <style dangerouslySetInnerHTML={{
         __html: `
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Montserrat:wght@200;400;600;700;900&display=swap');
+
+        /* AQUÍ ESTÁ LA MAGIA 3: El antídoto para el bug de overflow que bloquea el sticky */
+        html, body {
+            overflow-x: clip !important;
+        }
 
         .font-serif { font-family: 'Cormorant Garamond', serif; }
         .font-sans { font-family: 'Montserrat', sans-serif; }
@@ -326,8 +326,8 @@ export default function InicioOMERTA() {
         }
       `}} />
 
-      {/* --- HEADER PRINCIPAL FIJO --- */}
-      <header className="bg-white/80 backdrop-blur-md text-black px-4 py-4 border-b border-gray-100 sticky top-0 z-[999]">
+      {/* AQUÍ ESTÁ LA MAGIA 1: El header es 'fixed', es decir, inmortal y separado del resto del código. */}
+      <header className="fixed top-0 left-0 w-full bg-white/80 backdrop-blur-md text-black px-4 py-4 border-b border-gray-100 z-[1001]">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-y-4 gap-x-3">
           <Link href="/" className="flex-shrink-0">
             <img src="/monograma-omerta.png" alt="OMERTA" className="h-10 md:h-12 w-auto hover:scale-105 transition-transform" />
@@ -336,7 +336,6 @@ export default function InicioOMERTA() {
           <div className="w-full order-last lg:order-none lg:flex-1 lg:max-w-xl mx-auto relative z-50">
             <form onSubmit={ejecutarBusqueda} className="flex items-center bg-white rounded-full px-5 py-3 border border-gray-200 shadow-sm focus-within:border-black transition-all">
               <button type="submit"><Search size={16} className="text-gray-400 mr-3" /></button>
-              {/* INPUT REACTIVO 100% */}
               <input
                 type="text"
                 value={terminoBusqueda}
@@ -348,7 +347,6 @@ export default function InicioOMERTA() {
                 placeholder="Buscar en el archivo..."
                 className="w-full bg-transparent outline-none text-xs font-bold"
               />
-              {/* BOTÓN X PARA CERRAR Y BORRAR BÚSQUEDA */}
               {terminoBusqueda.length > 0 && (
                 <button type="button" onClick={() => { setTerminoBusqueda(''); setMostrandoResultados(false); }} className="text-gray-300 hover:text-black text-xs font-black ml-2 px-2 transition-colors">
                   X
@@ -413,7 +411,6 @@ export default function InicioOMERTA() {
 
       {/* --- HERO DIVIDIDO INICIAL --- */}
       <div className="hero-wrap" id="omerta-split-hero">
-        {/* Llama a cambiarGeneroManual en vez de setGenero directo */}
         <div className="hero-side side-w" onClick={() => cambiarGeneroManual('WOMAN')}>
           <div className="bg-wrap">
             <img src="/omerta-woman.png" alt="Omerta Woman" />
@@ -427,7 +424,6 @@ export default function InicioOMERTA() {
 
         <div className="hero-divider"></div>
 
-        {/* Llama a cambiarGeneroManual en vez de setGenero directo */}
         <div className="hero-side side-m" onClick={() => cambiarGeneroManual('MEN')}>
           <div className="bg-wrap">
             <img src="/omerta-men.png" alt="Omerta Men" />
@@ -440,8 +436,8 @@ export default function InicioOMERTA() {
         </div>
       </div>
 
-      {/* --- NAVEGACIÓN COMPACTA (SE PEGA DEBAJO DEL HEADER) --- */}
-      <nav id="archivo-lanzamientos" className="w-full py-4 md:pt-10 md:pb-8 flex flex-col items-center border-b border-gray-100 sticky top-[73px] md:top-[81px] z-[80] bg-white/95 backdrop-blur-md transition-all">
+      {/* --- NAVEGACIÓN COMPACTA --- */}
+      <nav id="archivo-lanzamientos" className="w-full py-4 md:pt-10 md:pb-8 flex flex-col items-center border-b border-gray-100 sticky top-[72px] md:top-[80px] z-[1000] bg-white/95 backdrop-blur-md transition-all">
         <div className="flex flex-nowrap justify-center gap-3 md:gap-10 no-scrollbar px-2 w-full overflow-x-auto">
           {actual.subCategorias.map((sub) => (
             <Link
