@@ -8,7 +8,7 @@ interface Prenda {
     precio?: string;
     img: string;
     cantidad?: number;
-    rawPrice?: number; // <-- NUEVO: Propiedad para el cálculo matemático
+    rawPrice?: number;
     [key: string]: any;
 }
 

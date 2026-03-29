@@ -17,7 +17,7 @@ const crearSlug = (texto: string) => {
 // =====================================================================
 function StarProductCard({ prod, number, title, description, reverse, imagenManual }: any) {
   const router = useRouter();
-  // AQUÍ ESTABA EL ERROR: Cambiado a agregarPrenda
+  // AQUÍ YA USAMOS agregarPrenda
   const { agregarPrenda } = useCartStore();
 
   const manejarAñadirAlCarrito = (e: React.MouseEvent) => {
@@ -34,7 +34,7 @@ function StarProductCard({ prod, number, title, description, reverse, imagenManu
       img: prod.imagenVariante || prod.img, variantTitle: varianteTitle, cantidad: 1,
     };
 
-    // AQUÍ ESTABA EL ERROR: Cambiado a agregarPrenda
+    // AQUÍ YA USAMOS agregarPrenda
     agregarPrenda(prendaParaCarrito);
     alert(`¡${prod.name} añadido al Carrito!`);
   };
@@ -61,7 +61,7 @@ function StarProductCard({ prod, number, title, description, reverse, imagenManu
         <p className="text-gray-500 text-sm md:text-base leading-relaxed mb-10 font-sans">{description}</p>
 
         <div className="flex flex-wrap gap-4 font-sans">
-          <button onClick={manejarAñadirAlCarrito} className="bg-[#111] text-white px-8 py-4 rounded-md font-bold text-xs uppercase tracking-widest hover:bg-black/80 transition-colors">Añadir al carrito</button>
+          <button onClick={manejarAñadirAlCarrito} className="bg-[#111] text-white px-8 py-4 rounded-md font-bold text-xs uppercase tracking-widest hover:bg-black/80 transition-colors">Añadir a Bolsa</button>
           <Link href={`/products/${prod.handle}`} className="bg-white text-black border border-gray-200 px-8 py-4 rounded-md font-bold text-xs uppercase tracking-widest hover:bg-gray-50 transition-colors flex items-center gap-2">Seleccionar Talla <ArrowRight size={14} /></Link>
         </div>
       </div>
@@ -141,7 +141,7 @@ function TarjetaProductoInteractiva({ prod, favoritos, manejarFavoritoDefault }:
 // =====================================================================
 export default function InicioOMERTA() {
   const router = useRouter();
-  // AQUÍ ESTABA EL ERROR: Cambiado a agregarPrenda
+  // AQUÍ YA USAMOS agregarPrenda en vez de setCantidad
   const { carrito = [], favoritos = [], toggleFavorito, agregarPrenda } = useCartStore();
   const [genero, setGenero] = useState<'MEN' | 'WOMAN'>('MEN');
   const [isLoggedIn] = useState(false);
@@ -246,11 +246,11 @@ export default function InicioOMERTA() {
       name: `${prod.name} (${varianteTitle})`, price: prod.price, rawPrice: prod.rawPrice,
       img: prod.imagenVariante || prod.img, variantTitle: varianteTitle, cantidad: 1,
     };
-    // AQUÍ ESTABA EL ERROR: Cambiado a agregarPrenda
+
+    // AQUÍ YA USAMOS agregarPrenda
     agregarPrenda(prendaParaCarrito);
     alert(`¡${prod.name} añadido a la bolsa!`);
   };
-
 
   const config = {
     MEN: { bgColor: '#ffffff', textColor: '#111111', subCategorias: ["Playeras", "Oversize", "Hoodies", "Pantalones", "Accesorios"] },
@@ -542,11 +542,11 @@ export default function InicioOMERTA() {
             </div>
 
             <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-y-16 gap-x-12">
-              <WomanCategoryRect title="Blusas" subtitle="Sofisticación para cada día" imgUrl="/woman-blusas.jpg" link={`/categoria/${crearSlug('woman-blusas')}`} />
-              <WomanCategoryRect title="Playera Oversize" subtitle="Comodidad sin esfuerzo" imgUrl="/woman-playeras-oversize.jpg" link={`/categoria/${crearSlug('woman-playeras-oversize')}`} />
-              <WomanCategoryRect title="Hoodies" subtitle="Esenciales urbanos" imgUrl="/woman-hoodies.jpg" link={`/categoria/${crearSlug('woman-hoodies')}`} />
-              <WomanCategoryRect title="Baby Tees" subtitle="Ajuste perfecto" imgUrl="/woman-babytees.jpg" link={`/categoria/${crearSlug('woman-baby-tees')}`} />
-              <WomanCategoryRect title="Accesorios" subtitle="Detalles que marcan la diferencia" imgUrl="/woman-accesorios.jpg" link={`/categoria/${crearSlug('woman-accesorios')}`} />
+              <WomanCategoryRect title="Blusas" subtitle="Sofisticación para cada día" imgUrl="/blusas-woman.png" link={`/categoria/${crearSlug('woman-blusas')}`} />
+              <WomanCategoryRect title="Playera Oversize" subtitle="Comodidad sin esfuerzo" imgUrl="/oversize-woman.png" link={`/categoria/${crearSlug('woman-playeras-oversize')}`} />
+              <WomanCategoryRect title="Hoodies" subtitle="Esenciales urbanos" imgUrl="/hoodie-woman.png" link={`/categoria/${crearSlug('woman-hoodies')}`} />
+              <WomanCategoryRect title="Baby Tees" subtitle="Ajuste perfecto" imgUrl="/baby-tees-woman.png" link={`/categoria/${crearSlug('woman-baby-tees')}`} />
+              <WomanCategoryRect title="Accesorios" subtitle="Detalles que marcan la diferencia" imgUrl="/accesorios.png" link={`/categoria/${crearSlug('woman-accesorios')}`} />
               <WomanCategoryRect title="Ver Todo" subtitle="Explora el archivo completo" imgUrl="/woman-all.jpg" link="/closet" />
             </div>
           </section>
@@ -607,10 +607,10 @@ export default function InicioOMERTA() {
             <h4 className="font-bold text-sm text-black mb-6 tracking-wide">SÍGUENOS</h4>
             <p className="text-gray-500 text-sm mb-6">Únete a nuestra comunidad.</p>
             <div className="flex gap-4">
-              <a href="#" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-black hover:bg-black hover:text-white transition-colors">
+              <a href="https://www.instagram.com/omerta.wrld?igsh=NGNhaXRsNjVkdzN4&utm_source=qr" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-black hover:bg-black hover:text-white transition-colors">
                 <Instagram size={18} />
               </a>
-              <a href="#" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-black hover:bg-black hover:text-white transition-colors">
+              <a href="https://www.tiktok.com/@omerta0398?_r=1&_t=ZS-953R8RpeaUn" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-black hover:bg-black hover:text-white transition-colors">
                 {/* SVG manual para TikTok */}
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"></path>
