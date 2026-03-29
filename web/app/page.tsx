@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from './store/useCartStore';
 import { getProducts } from './lib/shopify';
+
 const crearSlug = (texto: string) => {
   return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-');
 };
@@ -16,7 +17,8 @@ const crearSlug = (texto: string) => {
 // =====================================================================
 function StarProductCard({ prod, number, title, description, reverse, imagenManual }: any) {
   const router = useRouter();
-  const { setCantidad } = useCartStore();
+  // AQUÍ ESTABA EL ERROR: Cambiado a agregarPrenda
+  const { agregarPrenda } = useCartStore();
 
   const manejarAñadirAlCarrito = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -32,7 +34,8 @@ function StarProductCard({ prod, number, title, description, reverse, imagenManu
       img: prod.imagenVariante || prod.img, variantTitle: varianteTitle, cantidad: 1,
     };
 
-    setCantidad(prendaParaCarrito, 1);
+    // AQUÍ ESTABA EL ERROR: Cambiado a agregarPrenda
+    agregarPrenda(prendaParaCarrito);
     alert(`¡${prod.name} añadido al Carrito!`);
   };
 
@@ -138,7 +141,8 @@ function TarjetaProductoInteractiva({ prod, favoritos, manejarFavoritoDefault }:
 // =====================================================================
 export default function InicioOMERTA() {
   const router = useRouter();
-  const { carrito = [], favoritos = [], toggleFavorito, setCantidad } = useCartStore();
+  // AQUÍ ESTABA EL ERROR: Cambiado a agregarPrenda
+  const { carrito = [], favoritos = [], toggleFavorito, agregarPrenda } = useCartStore();
   const [genero, setGenero] = useState<'MEN' | 'WOMAN'>('MEN');
   const [isLoggedIn] = useState(false);
   const userName = "Osva";
@@ -242,7 +246,8 @@ export default function InicioOMERTA() {
       name: `${prod.name} (${varianteTitle})`, price: prod.price, rawPrice: prod.rawPrice,
       img: prod.imagenVariante || prod.img, variantTitle: varianteTitle, cantidad: 1,
     };
-    setCantidad(prendaParaCarrito, 1);
+    // AQUÍ ESTABA EL ERROR: Cambiado a agregarPrenda
+    agregarPrenda(prendaParaCarrito);
     alert(`¡${prod.name} añadido a la bolsa!`);
   };
 
@@ -447,22 +452,22 @@ export default function InicioOMERTA() {
       )}
 
       {/* ========================================================= */}
-      {/* SECCIÓN WOMAN (DISEÑO SANS-SERIF COMPLETAMENTE) */}
+      {/* SECCIÓN WOMAN (MINIMALISTA CON CLICK Y CARRITO ACTIVO Y TAGS SEPARADOS) */}
       {/* ========================================================= */}
       {genero === 'WOMAN' && !cargandoShopify && (
         <>
-          {/* HÉROE MINIMALISTA */}
+          {/* HÉROE MINIMALISTA (ESTILO 50/50 DE image_a95243.jpg) */}
           <section className="w-full flex flex-col md:flex-row min-h-[85vh] bg-white relative z-10 font-sans border-b border-gray-100">
             {/* Lado Texto */}
             <div className="w-full md:w-1/2 flex flex-col justify-center px-8 md:px-20 lg:px-32 py-20 md:py-0">
-              <span className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-6">Nueva Temporada</span>
-              <h2 className="text-6xl md:text-8xl font-bold text-black leading-[0.9] tracking-tighter mb-8 font-sans">
+              <span className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-gray-500 mb-6">Para ti</span>
+              <h2 className="text-6xl md:text-8xl font-bold text-black leading-[0.9] tracking-tighter mb-8">
                 {productoEstrellaWoman1?.name || 'Boxy Cerezo'}
               </h2>
-              <p className="text-gray-600 text-sm md:text-base leading-relaxed mb-10 max-w-md font-sans">
+              <p className="text-gray-600 text-sm md:text-base leading-relaxed mb-10 max-w-md">
                 Descubre nuestra colección diseñada para la mujer moderna que valora la simplicidad y la calidad.
               </p>
-              <div className="flex flex-wrap gap-4 font-sans">
+              <div className="flex flex-wrap gap-4">
                 <button
                   onClick={(e) => añadirCarritoWoman(e, productoEstrellaWoman1)}
                   className="bg-black text-white px-8 py-4 text-xs font-bold uppercase tracking-widest hover:bg-black/80 transition-colors rounded-none"
@@ -486,7 +491,7 @@ export default function InicioOMERTA() {
             </Link>
           </section>
 
-          {/* SECCIÓN DE DETALLE ENUMERADA */}
+          {/* SECCIÓN DE DETALLE ENUMERADA (Crop Top OMERTA - image_b83cfa.jpg) */}
           <section className="w-full py-20 md:py-32 relative z-10 bg-white font-sans border-b border-gray-100">
             <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-16 md:gap-24 px-6">
 
@@ -499,19 +504,19 @@ export default function InicioOMERTA() {
               </Link>
 
               <div className="w-full md:w-1/2 flex flex-col justify-center text-left">
-                <h3 className="text-4xl md:text-6xl font-bold text-black leading-tight tracking-tighter mb-8 font-sans">
+                <h3 className="text-4xl md:text-6xl font-bold text-black leading-tight tracking-tighter mb-8">
                   {productoEstrellaWoman2?.name || 'Crop Top OMERTA'}
                 </h3>
-                <p className="text-gray-600 text-sm md:text-base leading-relaxed mb-8 max-w-md font-sans">
+                <p className="text-gray-600 text-sm md:text-base leading-relaxed mb-8 max-w-md">
                   Hecho para brillar con naturalidad
                 </p>
-                <ul className="list-disc pl-5 text-gray-600 text-sm md:text-base space-y-2 mb-10 font-sans">
+                <ul className="list-disc pl-5 text-gray-600 text-sm md:text-base space-y-2 mb-10">
                   <li>Materiales premium sostenibles</li>
                   <li>Diseño atemporal</li>
                   <li>Hecha a tu medida</li>
                 </ul>
 
-                <div className="flex flex-wrap gap-4 font-sans">
+                <div className="flex flex-wrap gap-4">
                   <button
                     onClick={(e) => añadirCarritoWoman(e, productoEstrellaWoman2)}
                     className="inline-flex justify-center items-center bg-black text-white px-10 py-4 font-bold uppercase tracking-widest text-xs hover:bg-black/80 transition-colors rounded-none w-fit"
@@ -531,18 +536,18 @@ export default function InicioOMERTA() {
 
           {/* SECCIÓN: EXPLORA POR CATEGORÍA */}
           <section className="w-full py-20 md:py-32 bg-white z-10 relative font-sans border-b border-gray-100">
-            <div className="max-w-7xl mx-auto px-6 mb-16 text-center font-sans">
+            <div className="max-w-7xl mx-auto px-6 mb-16 text-center">
               <h2 className="text-4xl md:text-5xl font-bold text-black mb-4 tracking-tighter">Explora por Categoría</h2>
               <p className="text-gray-500 text-sm md:text-base">Piezas cuidadosamente seleccionadas para cada ocasión</p>
             </div>
 
             <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-y-16 gap-x-12">
-              <WomanCategoryRect title="Blusas" subtitle="Sofisticación para cada día" imgUrl="/blusas-woman.png" link={`/categoria/${crearSlug('woman-blusas')}`} />
-              <WomanCategoryRect title="Playera Oversize" subtitle="Comodidad sin esfuerzo" imgUrl="/oversize-woman.png" link={`/categoria/${crearSlug('woman-playeras-oversize')}`} />
-              <WomanCategoryRect title="Hoodies" subtitle="Esenciales para ti" imgUrl="/hoodie-woman.png" link={`/categoria/${crearSlug('woman-hoodies')}`} />
-              <WomanCategoryRect title="Baby Tees" subtitle="Detalles que marcan la diferencia" imgUrl="/baby-tees-woman.png" link={`/categoria/${crearSlug('woman-baby-tees')}`} />
-              <WomanCategoryRect title="Tirantes" subtitle="Ajuste perfecto" imgUrl="/tirantes-woman.png" link={`/categoria/${crearSlug('woman-tirantes')}`} />
-              <WomanCategoryRect title="Accesorios" subtitle="Explora el archivo completo" imgUrl="/accesorios.png" link={`/categoria/${crearSlug('woman-accesorios')}`} />
+              <WomanCategoryRect title="Blusas" subtitle="Sofisticación para cada día" imgUrl="/woman-blusas.jpg" link={`/categoria/${crearSlug('woman-blusas')}`} />
+              <WomanCategoryRect title="Playera Oversize" subtitle="Comodidad sin esfuerzo" imgUrl="/woman-playeras-oversize.jpg" link={`/categoria/${crearSlug('woman-playeras-oversize')}`} />
+              <WomanCategoryRect title="Hoodies" subtitle="Esenciales urbanos" imgUrl="/woman-hoodies.jpg" link={`/categoria/${crearSlug('woman-hoodies')}`} />
+              <WomanCategoryRect title="Baby Tees" subtitle="Ajuste perfecto" imgUrl="/woman-babytees.jpg" link={`/categoria/${crearSlug('woman-baby-tees')}`} />
+              <WomanCategoryRect title="Accesorios" subtitle="Detalles que marcan la diferencia" imgUrl="/woman-accesorios.jpg" link={`/categoria/${crearSlug('woman-accesorios')}`} />
+              <WomanCategoryRect title="Ver Todo" subtitle="Explora el archivo completo" imgUrl="/woman-all.jpg" link="/closet" />
             </div>
           </section>
         </>
@@ -602,10 +607,10 @@ export default function InicioOMERTA() {
             <h4 className="font-bold text-sm text-black mb-6 tracking-wide">SÍGUENOS</h4>
             <p className="text-gray-500 text-sm mb-6">Únete a nuestra comunidad.</p>
             <div className="flex gap-4">
-              <a href="https://www.instagram.com/omerta.wrld?igsh=NGNhaXRsNjVkdzN4&utm_source=qr" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-black hover:bg-black hover:text-white transition-colors">
+              <a href="#" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-black hover:bg-black hover:text-white transition-colors">
                 <Instagram size={18} />
               </a>
-              <a href="https://www.tiktok.com/@omerta0398?_r=1&_t=ZS-953R8RpeaUn" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-black hover:bg-black hover:text-white transition-colors">
+              <a href="#" target="_blank" rel="noreferrer" className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-black hover:bg-black hover:text-white transition-colors">
                 {/* SVG manual para TikTok */}
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9 12a4 4 0 1 0 4 4V4a5 5 0 0 0 5 5"></path>
