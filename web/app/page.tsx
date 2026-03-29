@@ -441,16 +441,22 @@ export default function InicioOMERTA() {
       </div>
 
       {/* --- NAVEGACIÓN FIJA (STICKY) --- */}
-      <nav id="archivo-lanzamientos" className="w-full pt-10 pb-8 flex flex-col items-center gap-8 border-b border-gray-100 sticky top-0 z-[80] bg-white/90 backdrop-blur-md transition-all">
-        <div className="flex overflow-x-auto justify-center gap-10 no-scrollbar px-4 w-full">
+      <nav id="archivo-lanzamientos" className="w-full py-4 md:pt-10 md:pb-8 flex flex-col items-center border-b border-gray-100 sticky top-0 z-[80] bg-white/95 backdrop-blur-md transition-all">
+        <div className="flex flex-nowrap justify-center gap-3 md:gap-10 no-scrollbar px-2 w-full overflow-x-auto">
           {actual.subCategorias.map((sub) => (
-            <Link key={sub + genero} href={`/categoria/${crearSlug(genero + '-' + sub)}`} className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-gray-400 hover:text-black transition-colors whitespace-nowrap">{sub}</Link>
+            <Link
+              key={sub + genero}
+              href={`/categoria/${crearSlug(genero + '-' + sub)}`}
+              className="text-[8px] md:text-xs font-black uppercase tracking-widest md:tracking-[0.3em] text-gray-400 hover:text-black transition-colors whitespace-nowrap flex-shrink-0"
+            >
+              {sub}
+            </Link>
           ))}
         </div>
       </nav>
 
       {/* ========================================================= */}
-      {/* SECCIÓN MEN (INTACTA) */}
+      {/* SECCIÓN MEN */}
       {/* ========================================================= */}
       {genero === 'MEN' && !cargandoShopify && (
         <section className="w-full bg-white py-12 md:py-24 relative z-10 overflow-hidden border-b border-gray-100">

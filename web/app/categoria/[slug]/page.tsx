@@ -9,9 +9,14 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { ProductCardInteractiva } from '../../../components/ProductCardInteractiva';
 
+// Función para crear el slug (debe ser igual a la de la Home)
+const crearSlug = (texto: string) => {
+    return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-');
+};
+
 export default function CategoriaPage() {
     const { slug } = useParams();
-    const router = useRouter(); // INICIALIZAMOS EL ROUTER AQUÍ
+    const router = useRouter();
     const [productos, setProductos] = useState<any[]>([]);
     const [cargando, setCargando] = useState(true);
 
@@ -24,21 +29,23 @@ export default function CategoriaPage() {
 
     const tituloFormateado = typeof slug === 'string' ? slug.replace(/-/g, ' ') : '';
 
+    // Determinamos el género basado en el slug para mostrar la barra correcta
+    const esWoman = (slug as string).toLowerCase().includes('woman');
+    const generoActual = esWoman ? 'WOMAN' : 'MEN';
+
+    const subCategorias = esWoman
+        ? ["Baby Tees", "Oversize", "Hoodies", "Blusas", "Accesorios"]
+        : ["Playeras", "Oversize", "Hoodies", "Pantalones", "Accesorios"];
+
     useEffect(() => {
         async function fetchCategoria() {
             try {
-                const data = await getProducts(); // Usamos el que tiene límite de 250
-
+                const data = await getProducts();
                 const slugLimpio = (slug as string).toLowerCase();
 
-                // FILTRO FLEXIBLE:
                 const filtradosPorTag = data.filter((item: any) => {
                     const tagsDelProducto = (item.node.tags || []).map((t: string) => t.toLowerCase());
-
-                    // 1. Coincidencia exacta (ej: woman-blusas)
                     if (tagsDelProducto.includes(slugLimpio)) return true;
-
-                    // 2. Coincidencia parcial (por si el tag es "woman-playeras-oversize" y el slug "woman-oversize")
                     const partesDelSlug = slugLimpio.split('-');
                     return tagsDelProducto.some((tag: string) =>
                         partesDelSlug.every((parte: string) => tag.includes(parte))
@@ -52,7 +59,7 @@ export default function CategoriaPage() {
                     name: item.node.title,
                     price: `$${parseFloat(item.node.priceRange.minVariantPrice.amount).toLocaleString()} MXN`,
                     img: item.node.images.edges?.[0]?.node?.url || 'https://via.placeholder.com/600',
-                    galeria: item.node.images.edges.map((e: any) => e.node.url), // IMPORTANTE para el movimiento
+                    galeria: item.node.images.edges.map((e: any) => e.node.url),
                 }));
 
                 setProductos(formateados);
@@ -68,7 +75,7 @@ export default function CategoriaPage() {
     return (
         <div className="min-h-screen bg-[#fcfcfc] text-black font-sans flex flex-col selection:bg-black selection:text-white">
 
-            {/* --- HEADER (Z-INDEX ALTO PARA QUE EL BUSCADOR NO SE TAPE) --- */}
+            {/* --- HEADER --- */}
             <header className="bg-white/80 backdrop-blur-md text-black px-4 py-4 sticky top-0 z-[100] border-b border-gray-100">
                 <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
                     <Link href="/" className="flex-shrink-0">
@@ -100,9 +107,26 @@ export default function CategoriaPage() {
                 </div>
             </header>
 
+            {/* --- NUEVA NAVEGACIÓN ULTRA COMPACTA (DEBAJO DEL HEADER) --- */}
+            <nav className="w-full py-4 bg-white border-b border-gray-100 sticky top-[73px] z-[80] backdrop-blur-md bg-white/95">
+                <div className="flex flex-nowrap justify-center gap-3 md:gap-10 no-scrollbar px-2 w-full overflow-x-auto">
+                    {subCategorias.map((sub) => (
+                        <Link
+                            key={sub}
+                            href={`/categoria/${crearSlug(generoActual + '-' + sub)}`}
+                            className={`text-[8px] md:text-xs font-black uppercase tracking-widest md:tracking-[0.3em] transition-colors whitespace-nowrap flex-shrink-0 ${(slug as string).toLowerCase().includes(crearSlug(sub))
+                                ? 'text-black underline underline-offset-4'
+                                : 'text-gray-400 hover:text-black'
+                                }`}
+                        >
+                            {sub}
+                        </Link>
+                    ))}
+                </div>
+            </nav>
+
             <div className="max-w-7xl mx-auto p-4 md:p-12 w-full">
                 <header className="mb-12 md:mb-16">
-                    {/* EL BOTÓN MÁGICO QUE REEMPLAZA AL LINK */}
                     <button onClick={() => router.back()} className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.3em] mb-8 hover:opacity-50 transition-opacity text-gray-500">
                         <ArrowLeft size={14} /> Volver al Protocolo
                     </button>
