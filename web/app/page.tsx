@@ -17,7 +17,6 @@ const crearSlug = (texto: string) => {
 // =====================================================================
 function StarProductCard({ prod, number, title, description, reverse, imagenManual }: any) {
   const router = useRouter();
-  // AQUÍ YA USAMOS agregarPrenda
   const { agregarPrenda } = useCartStore();
 
   const manejarAñadirAlCarrito = (e: React.MouseEvent) => {
@@ -34,7 +33,6 @@ function StarProductCard({ prod, number, title, description, reverse, imagenManu
       img: prod.imagenVariante || prod.img, variantTitle: varianteTitle, cantidad: 1,
     };
 
-    // AQUÍ YA USAMOS agregarPrenda
     agregarPrenda(prendaParaCarrito);
     alert(`¡${prod.name} añadido al Carrito!`);
   };
@@ -141,7 +139,6 @@ function TarjetaProductoInteractiva({ prod, favoritos, manejarFavoritoDefault }:
 // =====================================================================
 export default function InicioOMERTA() {
   const router = useRouter();
-  // AQUÍ YA USAMOS agregarPrenda en vez de setCantidad
   const { carrito = [], favoritos = [], toggleFavorito, agregarPrenda } = useCartStore();
   const [genero, setGenero] = useState<'MEN' | 'WOMAN'>('MEN');
   const [isLoggedIn] = useState(false);
@@ -218,15 +215,16 @@ export default function InicioOMERTA() {
   const productoEstrellaMen2 = productosFiltrados.find(p => p.tags.some((t: string) => t.toLowerCase().includes('estrella-2'))) || productosFiltrados[1];
   const productoEstrellaMen3 = productosFiltrados.find(p => p.tags.some((t: string) => t.toLowerCase().includes('estrella-3'))) || productosFiltrados[2];
 
-  // --- OBTENEMOS LOS PRODUCTOS ESTRELLA WOMAN (Nuevos tags: woman-1 y woman-2) ---
+  // --- OBTENEMOS LOS PRODUCTOS ESTRELLA WOMAN ---
   const productoEstrellaWoman1 = productosShopify.find(p => p.tags.some((t: string) => t.toLowerCase().trim() === 'woman-1')) || productosFiltrados[0];
   const productoEstrellaWoman2 = productosShopify.find(p => p.tags.some((t: string) => t.toLowerCase().trim() === 'woman-2')) || (productosFiltrados.length > 1 ? productosFiltrados[1] : productosFiltrados[0]);
 
+  // LIVE SEARCH EXACTO
   const resultadosBusqueda = terminoBusqueda.trim() === '' ? [] : productosShopify.filter(p => p.name.toLowerCase().includes(terminoBusqueda.toLowerCase()));
 
+  // Evitamos que recargue si alguien por error da "Enter"
   const ejecutarBusqueda = (e: React.FormEvent) => {
     e.preventDefault();
-    if (terminoBusqueda.trim()) router.push(`/buscar?q=${encodeURIComponent(terminoBusqueda)}`);
   };
 
   const manejarFavoritoDefault = (prod: any) => {
@@ -236,7 +234,6 @@ export default function InicioOMERTA() {
     toggleFavorito(prendaParaCloset);
   };
 
-  // Función para manejar el carrito desde la sección Woman (Hero & Detalle)
   const añadirCarritoWoman = (e: React.MouseEvent, prod: any) => {
     e.preventDefault(); e.stopPropagation();
     if (!prod) return;
@@ -247,7 +244,6 @@ export default function InicioOMERTA() {
       img: prod.imagenVariante || prod.img, variantTitle: varianteTitle, cantidad: 1,
     };
 
-    // AQUÍ YA USAMOS agregarPrenda
     agregarPrenda(prendaParaCarrito);
     alert(`¡${prod.name} añadido a la bolsa!`);
   };
@@ -314,65 +310,78 @@ export default function InicioOMERTA() {
         }
       `}} />
 
-      {/* --- HEADER --- */}
-      <div className="sticky top-0 z-50 w-full flex flex-col font-sans">
-        <header className="bg-white/80 backdrop-blur-md text-black px-4 py-4 border-b border-gray-100 relative">
-          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-y-4 gap-x-3">
-            <Link href="/" className="flex-shrink-0">
-              <img src="/monograma-omerta.png" alt="OMERTA" className="h-10 md:h-12 w-auto hover:scale-105 transition-transform" />
-            </Link>
+      {/* --- HEADER CON Z-INDEX ALTO --- */}
+      <header className="bg-white/80 backdrop-blur-md text-black px-4 py-4 border-b border-gray-100 relative z-[999]">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-y-4 gap-x-3">
+          <Link href="/" className="flex-shrink-0">
+            <img src="/monograma-omerta.png" alt="OMERTA" className="h-10 md:h-12 w-auto hover:scale-105 transition-transform" />
+          </Link>
 
-            <div className="w-full order-last lg:order-none lg:flex-1 lg:max-w-xl mx-auto relative z-50">
-              <form onSubmit={ejecutarBusqueda} className="flex items-center bg-white rounded-full px-5 py-3 border border-gray-200 shadow-sm focus-within:border-black transition-all">
-                <button type="submit"><Search size={16} className="text-gray-400 mr-3" /></button>
-                <input type="text" value={terminoBusqueda} onChange={(e) => setTerminoBusqueda(e.target.value)} placeholder="Buscar en el archivo..." className="w-full bg-transparent outline-none text-xs font-bold" />
-              </form>
+          <div className="w-full order-last lg:order-none lg:flex-1 lg:max-w-xl mx-auto relative z-50">
+            <form onSubmit={ejecutarBusqueda} className="flex items-center bg-white rounded-full px-5 py-3 border border-gray-200 shadow-sm focus-within:border-black transition-all">
+              <button type="submit"><Search size={16} className="text-gray-400 mr-3" /></button>
+              {/* INPUT REACTIVO 100% */}
+              <input
+                type="text"
+                value={terminoBusqueda}
+                onChange={(e) => setTerminoBusqueda(e.target.value)}
+                placeholder="Buscar en el archivo..."
+                className="w-full bg-transparent outline-none text-xs font-bold"
+              />
+              {/* BOTÓN X PARA CERRAR Y BORRAR BÚSQUEDA */}
+              {terminoBusqueda.length > 0 && (
+                <button type="button" onClick={() => setTerminoBusqueda('')} className="text-gray-300 hover:text-black text-xs font-black ml-2 px-2 transition-colors">
+                  X
+                </button>
+              )}
+            </form>
 
-              <AnimatePresence>
-                {mostrandoResultados && terminoBusqueda.length > 0 && (
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute top-full left-0 right-0 mt-3 bg-white border border-gray-100 rounded-3xl shadow-2xl overflow-hidden z-[100] max-h-[60vh] overflow-y-auto">
-                    {resultadosBusqueda.length > 0 ? (
-                      <div className="p-2">
-                        {resultadosBusqueda.map(prod => (
-                          <Link key={prod.handle} href={`/products/${prod.handle}`} className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-2xl transition-colors group">
-                            <div className="w-14 h-16 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
-                              <img src={prod.img} alt={prod.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                            </div>
-                            <div className="flex-1 min-w-0"><h4 className="text-xs font-black uppercase tracking-widest truncate group-hover:text-gray-600 transition-colors">{prod.name}</h4></div>
-                            <ChevronRight size={16} className="text-gray-300 group-hover:text-black transition-colors mr-2" />
-                          </Link>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="p-10 text-center flex flex-col items-center justify-center">
-                        <Search size={32} className="text-gray-200 mb-4" />
-                        <div className="text-xs font-black text-gray-400 uppercase tracking-widest">Sin coincidencias en el archivo</div>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <div className="flex items-center space-x-4 md:space-x-8 text-[10px] font-black uppercase tracking-widest bg-black text-white px-5 py-3 rounded-full shadow-xl">
-              <Link href="/closet" className="flex items-center gap-2 relative">
-                <LayoutGrid size={16} /> <span className="hidden lg:inline">Closet</span>
-                {cantidadTotalCloset > 0 && <span className="absolute -top-2 -right-3 bg-red-600 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border border-black">{cantidadTotalCloset}</span>}
-              </Link>
-              <button className="hidden md:flex items-center gap-2"><Bell size={16} /></button>
-              <Link href="/login" className="flex items-center gap-2"><User size={16} /><span className="hidden lg:inline">{isLoggedIn ? userName : 'Entrar'}</span></Link>
-              <div className="w-[1px] h-4 bg-zinc-700 hidden lg:block"></div>
-              <Link href="/carrito" className="flex items-center gap-2 relative">
-                <ShoppingBag size={16} /> <span className="hidden lg:inline">Bolsa</span>
-                {cantidadTotalCarrito > 0 && <span className="absolute -top-2 -right-3 bg-white text-black text-[9px] w-4 h-4 rounded-full flex items-center justify-center border border-black">{cantidadTotalCarrito}</span>}
-              </Link>
-            </div>
+            <AnimatePresence>
+              {terminoBusqueda.length > 0 && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute top-full left-0 right-0 mt-3 bg-white border border-gray-100 rounded-3xl shadow-2xl overflow-hidden z-[999] max-h-[60vh] overflow-y-auto">
+                  {resultadosBusqueda.length > 0 ? (
+                    <div className="p-2">
+                      {resultadosBusqueda.map(prod => (
+                        <Link
+                          key={prod.handle}
+                          href={`/products/${prod.handle}`}
+                          onClick={() => setTerminoBusqueda('')} // Al dar clic, se limpia y se cierra el cuadro
+                          className="flex items-center gap-4 p-3 hover:bg-gray-50 rounded-2xl transition-colors group"
+                        >
+                          <div className="w-14 h-16 bg-gray-100 rounded-xl overflow-hidden flex-shrink-0">
+                            <img src={prod.img} alt={prod.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                          </div>
+                          <div className="flex-1 min-w-0"><h4 className="text-xs font-black uppercase tracking-widest truncate group-hover:text-gray-600 transition-colors">{prod.name}</h4></div>
+                          <ChevronRight size={16} className="text-gray-300 group-hover:text-black transition-colors mr-2" />
+                        </Link>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-10 text-center flex flex-col items-center justify-center">
+                      <Search size={32} className="text-gray-200 mb-4" />
+                      <div className="text-xs font-black text-gray-400 uppercase tracking-widest">Sin coincidencias en el archivo</div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-        </header>
-        <div className="bg-black text-white py-2 px-4 text-center text-[10px] md:text-xs font-black uppercase tracking-widest shadow-md">
-          {totalDineroCarrito >= META_ENVIO_GRATIS ? "¡HAS DESBLOQUEADO EL ENVÍO GRATIS! 🚚" : `FALTAN $${faltaParaEnvio} MXN PARA ENVÍO GRATIS 📦`}
+
+          <div className="flex items-center space-x-4 md:space-x-8 text-[10px] font-black uppercase tracking-widest bg-black text-white px-5 py-3 rounded-full shadow-xl">
+            <Link href="/closet" className="flex items-center gap-2 relative">
+              <LayoutGrid size={16} /> <span className="hidden lg:inline">Closet</span>
+              {cantidadTotalCloset > 0 && <span className="absolute -top-2 -right-3 bg-red-600 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border border-black">{cantidadTotalCloset}</span>}
+            </Link>
+            <button className="flex items-center gap-2"><Bell size={16} /></button>
+            <Link href="/login" className="flex items-center gap-2"><User size={16} /><span className="hidden lg:inline">{isLoggedIn ? userName : 'Entrar'}</span></Link>
+            <div className="w-[1px] h-4 bg-zinc-700 hidden lg:block"></div>
+            <Link href="/carrito" className="flex items-center gap-2 relative">
+              <ShoppingBag size={16} /> <span className="hidden lg:inline">Bolsa</span>
+              {cantidadTotalCarrito > 0 && <span className="absolute -top-2 -right-3 bg-white text-black text-[9px] w-4 h-4 rounded-full flex items-center justify-center border border-black">{cantidadTotalCarrito}</span>}
+            </Link>
+          </div>
         </div>
-      </div>
+      </header>
 
       {/* --- HERO DIVIDIDO INICIAL --- */}
       <div className="hero-wrap" id="omerta-split-hero">
