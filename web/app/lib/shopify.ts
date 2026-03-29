@@ -39,7 +39,7 @@ export async function ShopifyData(query: string, variables = {}) {
 
 export async function getProducts() {
   const query = `{
-    products(first: 20, sortKey: CREATED_AT, reverse: true) {
+    products(first: 250, sortKey: CREATED_AT, reverse: true) {
       edges {
         node {
           id

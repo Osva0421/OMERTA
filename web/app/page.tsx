@@ -214,9 +214,9 @@ export default function InicioOMERTA() {
   });
 
   // --- OBTENEMOS LOS PRODUCTOS ESTRELLA MEN ---
-  const productoEstrellaMen1 = productosShopify.find(p => p.tags.some((t: string) => t.toLowerCase().trim() === 'estrella-1')) || productosFiltrados[0];
-  const productoEstrellaMen2 = productosShopify.find(p => p.tags.some((t: string) => t.toLowerCase().trim() === 'estrella-2')) || productosFiltrados[1];
-  const productoEstrellaMen3 = productosShopify.find(p => p.tags.some((t: string) => t.toLowerCase().trim() === 'estrella-3')) || productosFiltrados[2];
+  const productoEstrellaMen1 = productosFiltrados.find(p => p.tags.some((t: string) => t.toLowerCase().includes('estrella-1'))) || productosFiltrados[0];
+  const productoEstrellaMen2 = productosFiltrados.find(p => p.tags.some((t: string) => t.toLowerCase().includes('estrella-2'))) || productosFiltrados[1];
+  const productoEstrellaMen3 = productosFiltrados.find(p => p.tags.some((t: string) => t.toLowerCase().includes('estrella-3'))) || productosFiltrados[2];
 
   // --- OBTENEMOS LOS PRODUCTOS ESTRELLA WOMAN (Nuevos tags: woman-1 y woman-2) ---
   const productoEstrellaWoman1 = productosShopify.find(p => p.tags.some((t: string) => t.toLowerCase().trim() === 'woman-1')) || productosFiltrados[0];
