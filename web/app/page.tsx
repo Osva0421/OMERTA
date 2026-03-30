@@ -637,7 +637,7 @@ export default function InicioOMERTA() {
               <li><Link href="/contacto" className="hover:text-black">Contacto</Link></li>
               <li><Link href="/envios" className="hover:text-black">Envíos</Link></li>
               <li><Link href="/devoluciones" className="hover:text-black">Devoluciones</Link></li>
-              <li><Link href="/faq" className="hover:text-black">FAQ</Link></li>
+              <li><Link href="/faq" className="hover:text-black">Dudas que tienes</Link></li>
             </ul>
           </div>
           <div>

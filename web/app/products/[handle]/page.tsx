@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useCartStore } from '../../store/useCartStore';
 import { getProduct, getProducts } from '../../lib/shopify';
@@ -8,6 +8,9 @@ import { ArrowLeft, ShoppingBag, Heart, Search, LayoutGrid, Bell, User, ChevronR
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 
+// =====================================================================
+// COMPONENTES AUXILIARES
+// =====================================================================
 function DescripcionTecnica({ texto }: { texto: string }) {
     const [estaExpandida, setEstaExpandida] = useState(false);
     const [mounted, setMounted] = useState(false);
@@ -35,7 +38,6 @@ function DescripcionTecnica({ texto }: { texto: string }) {
     );
 }
 
-// --- COMPONENTE: BARRA DE PROGRESO EN VIVO ---
 function BarraEnvioGratis() {
     const carrito = useCartStore((state) => state.carrito);
     const obtenerTotalCarrito = useCartStore((state) => state.obtenerTotalCarrito);
@@ -74,6 +76,56 @@ function BarraEnvioGratis() {
     );
 }
 
+// --- MOTOR DE SLIDESHOW PARA "AGREGA A TU OUTFIT" ---
+function TarjetaProductoInteractiva({ prod, favoritos, manejarFavoritoDefault }: any) {
+    const [indiceActivo, setIndiceActivo] = useState(0);
+    const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+    const iniciarHover = () => {
+        if (window.matchMedia("(min-width: 768px)").matches && prod.galeria && prod.galeria.length > 1) {
+            timerRef.current = setInterval(() => setIndiceActivo((prev) => (prev + 1) % prod.galeria.length), 1200);
+        }
+    };
+
+    const detenerHover = () => {
+        if (timerRef.current) clearInterval(timerRef.current);
+        setIndiceActivo(0);
+    };
+
+    const esFavorito = (favoritos || []).some((f: any) => f.shopifyId === prod.shopifyId);
+
+    return (
+        <div className="w-full flex-none snap-center group relative flex flex-col cursor-pointer font-sans" onMouseEnter={iniciarHover} onMouseLeave={detenerHover}>
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); manejarFavoritoDefault(prod); }} className="absolute top-4 right-4 z-20 p-2 md:p-3 bg-white/80 backdrop-blur-md rounded-full border border-gray-100 shadow-sm hover:scale-110 transition-all opacity-0 group-hover:opacity-100">
+                <motion.div key={esFavorito ? "full" : "empty"} animate={{ scale: esFavorito ? [1, 1.3, 1] : 1 }}>
+                    <Heart size={16} className={esFavorito ? "text-red-500 fill-red-500" : "text-gray-400"} />
+                </motion.div>
+            </button>
+            <div className="aspect-[4/5] bg-[#f8f8f8] mb-4 md:mb-6 relative overflow-hidden rounded-2xl md:rounded-3xl">
+                <div className="w-full h-full flex overflow-x-auto md:overflow-hidden snap-x snap-mandatory no-scrollbar relative z-10">
+                    {prod.galeria.map((imgUrl: string, i: number) => (
+                        <Link key={i} href={`/products/${prod.handle}`} className="w-full h-full flex-none snap-center relative" style={{ transform: `translateX(-${indiceActivo * 100}%)`, transition: 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1)' }}>
+                            <img src={imgUrl} alt={`${prod.name} - Vista ${i}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                        </Link>
+                    ))}
+                </div>
+                <div className="absolute bottom-0 w-full p-4 translate-y-0 md:translate-y-full md:group-hover:translate-y-0 transition-transform duration-300 pointer-events-none md:pointer-events-auto relative z-20">
+                    <Link href={`/products/${prod.handle}`} className="pointer-events-auto block">
+                        <div className="w-full bg-black text-white text-[10px] md:text-xs font-bold px-6 py-5 md:py-6 uppercase tracking-widest shadow-lg flex justify-center items-center rounded-xl md:rounded-2xl">Ver Pieza</div>
+                    </Link>
+                </div>
+            </div>
+            <Link href={`/products/${prod.handle}`}>
+                <h4 className="font-bold text-[10px] md:text-xs uppercase tracking-widest truncate hover:text-gray-500 transition-colors">{prod.name}</h4>
+                <p className="text-gray-400 text-xs md:text-sm mt-1">{prod.price}</p>
+            </Link>
+        </div>
+    );
+}
+
+// =====================================================================
+// PÁGINA PRINCIPAL DEL PRODUCTO
+// =====================================================================
 export default function ProductPage() {
     const { handle } = useParams();
     const router = useRouter();
@@ -159,13 +211,12 @@ export default function ProductPage() {
             }
         }
 
-        // --- FIX: FILTRO DE FOTOS MEJORADO ---
+        // Filtro de fotos mejorado por color
         if (colorSeleccionado) {
             const colorTarget = colorSeleccionado.trim().toLowerCase();
             const fotosColor = producto.images.edges.filter((img: any) => {
                 if (!img.node.altText) return false;
                 const alt = img.node.altText.toLowerCase().trim();
-                // Busca coincidencia exacta para no mezclar colores similares
                 return alt === colorTarget || alt.includes(` ${colorTarget}`) || alt.includes(`${colorTarget} `);
             });
             setGaleríaFiltrada(fotosColor.length > 0 ? fotosColor : producto.images.edges);
@@ -177,19 +228,24 @@ export default function ProductPage() {
         async function cargarCatalogoBuscador() {
             const data = await getProducts();
             const formateados = data.map((item: any) => ({
+                id: item.node.id,
                 handle: item.node.handle,
+                shopifyId: item.node.variants?.edges?.[0]?.node?.id || "ID_VACIO",
                 name: item.node.title,
                 price: `$${parseFloat(item.node.priceRange.minVariantPrice.amount).toLocaleString()} MXN`,
+                rawPrice: parseFloat(item.node.priceRange.minVariantPrice.amount),
                 img: item.node.images.edges?.[0]?.node?.url,
+                galeria: item.node.images.edges.map((e: any) => e.node.url), // IMPORTANTE PARA EL HOVER
                 tags: item.node.tags || [],
+                tituloVariante: item.node.variants?.edges?.[0]?.node?.title || "Unitalla"
             }));
             setTodosLosProductos(formateados);
         }
         cargarCatalogoBuscador();
 
         const hoy = new Date();
-        const min = new Date(hoy); min.setDate(hoy.getDate() + 3);
-        const max = new Date(hoy); max.setDate(hoy.getDate() + 6);
+        const min = new Date(hoy); min.setDate(hoy.getDate() + 7);
+        const max = new Date(hoy); max.setDate(hoy.getDate() + 10);
         const opciones = { day: 'numeric', month: 'short' } as const;
         setFechaEntrega(`${min.toLocaleDateString('es-MX', opciones)} al ${max.toLocaleDateString('es-MX', opciones)}`);
     }, []);
@@ -238,6 +294,12 @@ export default function ProductPage() {
             setTimeout(() => setCorazonVolador(false), 800);
         }
         toggleFavorito(prendaActual);
+    };
+
+    const manejarFavoritoDefault = (prod: any) => {
+        let varTitle = prod.tituloVariante?.replace(/\s*\/\s*/g, ' - ') || 'Unitalla';
+        if (varTitle.toLowerCase() === 'default title') varTitle = 'Unitalla';
+        toggleFavorito({ id: prod.id, shopifyId: prod.shopifyId, name: `${prod.name} (${varTitle})`, price: prod.price, rawPrice: prod.rawPrice, img: prod.img });
     };
 
     const manejarCarrito = () => {
@@ -391,7 +453,7 @@ export default function ProductPage() {
                                 alt={producto.title}
                                 className="w-full h-auto object-contain transition-all duration-500"
                             />
-                            <div className="absolute top-6 left-6 bg-black/10 backdrop-blur-md px-4 py-2 rounded-full text-[10px] font-bold text-black uppercase tracking-widest">
+                            <div className="absolute top-6 left-6 bg-black/10 backdrop-blur-md px-4 py-2 rounded-full text-[10px] font-bold text-black uppercase tracking-widest pointer-events-none">
                                 Vigilancia Omerta
                             </div>
                         </div>
@@ -423,10 +485,10 @@ export default function ProductPage() {
                             </div>
                         )}
 
-                        {/* --- SELECTOR DE TALLAS --- */}
-                        <div className="mb-8">
+                        {/* --- SELECTOR DE TALLAS CON SCROLL HORIZONTAL --- */}
+                        <div className="mb-8 w-full overflow-hidden">
                             <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] mb-4 text-gray-400">Selecciona tu talla</h3>
-                            <div className="flex flex-wrap gap-3 pb-4">
+                            <div className="flex overflow-x-auto gap-3 pb-4 no-scrollbar snap-x px-1">
                                 {tallasDisponibles.map((talla) => {
                                     const varianteCombo = producto.variants.edges.find(({ node }: any) =>
                                         node.title === `${colorSeleccionado} / ${talla}` ||
@@ -441,7 +503,7 @@ export default function ProductPage() {
                                             key={talla}
                                             onClick={() => setTallaSeleccionada(talla)}
                                             disabled={!isAvailable}
-                                            className={`px-6 py-4 border-2 font-black uppercase tracking-widest text-xs min-w-[70px] transition-all rounded-xl ${tallaSeleccionada === talla
+                                            className={`flex-shrink-0 snap-center px-6 py-4 border-2 font-black uppercase tracking-widest text-xs min-w-[70px] transition-all rounded-xl ${tallaSeleccionada === talla
                                                 ? 'border-black bg-black text-white scale-105 shadow-md'
                                                 : 'border-gray-100 text-gray-400 hover:border-black'
                                                 } ${!isAvailable ? 'opacity-30 line-through cursor-not-allowed' : ''}`}
@@ -499,26 +561,27 @@ export default function ProductPage() {
 
                         <div className="bg-gray-50 border border-gray-100 rounded-2xl p-6 space-y-5 mb-8">
                             <div className="flex items-start gap-4">
-                                <Truck size={20} className="text-black mt-1" />
+                                <Truck size={20} className="text-black mt-1 flex-shrink-0" />
                                 <div>
                                     <h4 className="text-[10px] font-black uppercase tracking-widest text-black mb-1">Envío a todo México</h4>
-                                    <p className="text-xs text-gray-500">Llegada estimada: <span className="font-bold text-black">{fechaEntrega || 'Calculando...'}</span></p>
+                                    <p className="text-xs text-gray-500 mb-1">Costo: <span className="font-bold text-black">$150.00 MXN</span> (Gratis desde $1,050 MXN)</p>
+                                    <p className="text-xs text-gray-500">Llegada estimada: <span className="font-bold text-black">{fechaEntrega}</span></p>
                                 </div>
                             </div>
                             <div className="w-full h-px bg-gray-200"></div>
                             <div className="flex items-start gap-4">
-                                <ShieldCheck size={20} className="text-black mt-1" />
+                                <ShieldCheck size={20} className="text-black mt-1 flex-shrink-0" />
                                 <div>
                                     <h4 className="text-[10px] font-black uppercase tracking-widest text-black mb-1">Pago 100% Seguro</h4>
-                                    <p className="text-xs text-gray-500">Transacción encriptada por Mercado Pago Checkout Pro.</p>
+                                    <p className="text-xs text-gray-500">Transacción encriptada por Mercado Pago y Shopify.</p>
                                 </div>
                             </div>
                             <div className="w-full h-px bg-gray-200"></div>
                             <div className="flex items-start gap-4">
-                                <RefreshCcw size={20} className="text-black mt-1" />
+                                <RefreshCcw size={20} className="text-black mt-1 flex-shrink-0" />
                                 <div>
                                     <h4 className="text-[10px] font-black uppercase tracking-widest text-black mb-1">Garantía del Archivo</h4>
-                                    <p className="text-xs text-gray-500">Cambios y devoluciones disponibles. Revisa el protocolo en el footer.</p>
+                                    <p className="text-xs text-gray-500">Reemplazo sin costo en caso de defectos de fabricación.</p>
                                 </div>
                             </div>
                         </div>
@@ -527,31 +590,26 @@ export default function ProductPage() {
                     </div>
                 </div>
 
-                {/* --- SECCIÓN: COMPLETA TU UNIFORME --- */}
+                {/* --- SECCIÓN MEJORADA: COMPLETA TU UNIFORME --- */}
                 {productosRecomendados.length > 0 && (
-                    <section className="mt-24 pt-16 border-t border-gray-100">
-                        <h3 className="text-2xl md:text-3xl font-black tracking-tighter uppercase mb-10 text-black">
-                            AGREGA A TU OUTFIT
-                        </h3>
+                    <section className="mt-24 pt-16 border-t-2 border-gray-100">
+                        <div className="flex justify-between items-end mb-10 px-2">
+                            <div>
+                                <h3 className="text-2xl md:text-4xl font-black tracking-tighter uppercase text-black mb-2">
+                                    AGREGA A TU CLOSET
+                                </h3>
+                                <p className="text-sm text-gray-500 font-serif">Productos que podrían interesarte</p>
+                            </div>
+                        </div>
+
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
                             {productosRecomendados.map((prod) => (
-                                <div key={prod.handle} className="group relative flex flex-col cursor-pointer">
-                                    <div className="aspect-[4/5] bg-[#f8f8f8] mb-4 relative overflow-hidden rounded-2xl">
-                                        <Link href={`/products/${prod.handle}`} className="block w-full h-full">
-                                            <img
-                                                src={prod.img}
-                                                alt={prod.name}
-                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                                            />
-                                        </Link>
-                                    </div>
-                                    <Link href={`/products/${prod.handle}`}>
-                                        <h4 className="font-bold text-[10px] md:text-xs uppercase tracking-widest truncate group-hover:text-gray-500 transition-colors">
-                                            {prod.name}
-                                        </h4>
-                                        <p className="text-gray-400 text-xs mt-1">{prod.price}</p>
-                                    </Link>
-                                </div>
+                                <TarjetaProductoInteractiva
+                                    key={prod.id || prod.handle}
+                                    prod={prod}
+                                    favoritos={favoritos}
+                                    manejarFavoritoDefault={manejarFavoritoDefault}
+                                />
                             ))}
                         </div>
                     </section>
